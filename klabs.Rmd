@@ -1,0 +1,85 @@
+---
+title: "klabs"
+author: "Ivan Klabučar"
+date: "12/14/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+habits = read.csv("data_health_and_prevention.csv")
+head(habits)
+```
+
+```{r}
+library('knitr')
+library('tidyverse')
+habits = habits[habits["DataValueTypeID"] == "AgeAdjPrv",]
+preventions = habits[habits["Category"] == "Prevention", c("Measure", "Short_Question_Text")] %>% distinct()
+kable(preventions, caption = "Possible preventions")
+illnesses = habits[habits["Category"] == "Health Outcomes", c("Measure", "Short_Question_Text")] %>% distinct()
+kable(illnesses, caption = "Possible illnesses")
+```
+
+Istražimo postoji li mjera preventivne zaštite koja je popularnija u saveznoj državi Ohio nego u saveznoj državi Florida.
+
+```{r}
+chol_screening_Ohio = habits[habits["StateDesc"] == "Ohio" & habits["Short_Question_Text"] == "Cholesterol Screening","Data_Value"]
+chol_screening_Florida = habits[habits["StateDesc"] == "Florida" & habits["Short_Question_Text"] == "Cholesterol Screening","Data_Value"]
+str_interp("Ohio Chol screening mean: $[.2f]{mean(chol_screening_Ohio)}, Florida chol screening mean: $[.2f]{mean(chol_screening_Florida)}")
+```
+No evidance that Cholesterol screening is more popular in Ohio.
+
+
+
+
+```{r}
+checkup_Ohio = habits[habits["StateDesc"] == "Ohio" & habits["Short_Question_Text"] == "Annual Checkup","Data_Value"]
+checkup_Florida = habits[habits["StateDesc"] == "Florida" & habits["Short_Question_Text"] == "Annual Checkup","Data_Value"]
+
+str_interp("Ohio annual checkup mean: $[.2f]{mean(checkup_Ohio)}, Florida annual checkup mean: $[.2f]{mean(checkup_Florida)}")
+```
+There is evidence that annual checkups are more popular in Ohio.
+```{r}
+t.test(checkup_Ohio, checkup_Florida, alt = "greater", var.equal = FALSE)
+```
+However that evidence is not significant at 0.05 confidence level.
+
+
+
+
+```{r}
+bpmed_Ohio = habits[habits["StateDesc"] == "Ohio" & habits["Short_Question_Text"] == "Taking BP Medication","Data_Value"]
+bpmed_Florida = habits[habits["StateDesc"] == "Florida" & habits["Short_Question_Text"] == "Taking BP Medication","Data_Value"]
+
+str_interp("Ohio blood pressure med mean: $[.2f]{mean(bpmed_Ohio)}, Florida blood pressure med mean: $[.2f]{mean(bpmed_Florida)}")
+```
+There is evidence that taking blood pressure medication is more popular in Ohio.
+```{r}
+t.test(bpmed_Ohio, bpmed_Florida, alt = "greater", var.equal = FALSE)
+```
+Taking blood pressure medication is significantly more popular in Ohio than Florida at 0.001 confidence level.
+
+
+
+```{r}
+insurance_Ohio = 100 - habits[habits["StateDesc"] == "Ohio" & habits["Short_Question_Text"] == "Health Insurance","Data_Value"]
+insurance_Florida = 100 - habits[habits["StateDesc"] == "Florida" & habits["Short_Question_Text"] == "Health Insurance","Data_Value"]
+
+str_interp("Ohio insurance mean: $[.2f]{mean(insurance_Ohio)}, Florida insurance mean: $[.2f]{mean(insurance_Florida)}")
+```
+There is evidence that health insurance is more popular in Ohio that in Florida.
+```{r}
+t.test(insurance_Ohio, insurance_Florida, alt = "greater", var.equal = FALSE)
+```
+Health insurance is significantly more popular in Ohio than in Florida at 0.005 confidence level. 
+
+
+```{r}
+COPD_data = habits[(habits["StateDesc"] == "Illinois" | habits[habits["StateDesc"] == "Iowa" | habits[habits["StateDesc"] == "South Dakota"),c("Data_Value", "PopulationCount", "Short_Question_Text")]
+COPD_data = COPD_data[COPD_data["Short_Question_Text"] == "COPD", ]
+```
+

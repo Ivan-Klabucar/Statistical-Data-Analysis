@@ -1,0 +1,156 @@
+---
+title: "Utjecaj preventivne zdravstvene zaštite na zdravlje"
+author: "Rabi"
+date: "12/12/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(tidyverse)
+library(dbplyr)
+health_data = read.csv("data_health_and_prevention.csv")
+#view(health_data)
+
+health_data$StateDesc = as.factor(health_data$StateDesc)
+health_data$CityName = as.factor(health_data$CityName)
+health_data$Category = as.factor(health_data$Category)
+health_data$Measure = as.factor(health_data$Measure)
+health_data$DataValueTypeID = as.factor(health_data$DataValueTypeID)
+health_data$Short_Question_Text = as.factor(health_data$Short_Question_Text)
+
+health_data_adj = health_data[health_data$DataValueTypeID== "AgeAdjPrv",]
+#view(health_data_adj)
+
+head(health_data_adj)
+
+dim(health_data_adj)
+unique(health_data_adj$Data_Value_Unit)
+unique(health_data_adj$StateDesc)
+
+unique(health_data_adj[health_data_adj$Category == "Prevention",]["Measure"])
+unique(health_data_adj[health_data_adj$Category == "Health Outcomes",]["Measure"])
+```
+
+```{r}
+summary(health_data_adj)
+```
+
+
+```{r}
+state_data <- health_data_adj %>% group_by(StateDesc) %>% summarise(
+  City.count = n_distinct(CityName),
+  Population.count = sum(unique(PopulationCount))
+)
+
+state_data
+```
+
+```{r}
+measure_summary <- health_data_adj %>% group_by(Measure) %>% summarise(
+  Total.percentage = sum(Data_Value*PopulationCount*0.01/sum(state_data$Population.count))*100,
+  Median.percentage = median(Data_Value),
+  Q1.percentage = quantile(Data_Value, probs = 0.25),
+  Q3.percentage = quantile(Data_Value, probs = 0.75),
+  Min.percentage = min(Data_Value),
+  Max.percentage = max(Data_Value),
+  Range.percentage = max(Data_Value)-min(Data_Value),
+  IQR.percentage = IQR(Data_Value),
+  Std.percentage = sd(Data_Value)
+  #CoV.percentage = cv(Data_Value)
+)
+
+health_data_adj$Percentage_in_Total = health_data_adj$Data_Value*health_data_adj$PopulationCount*0.01/sum(state_data$Population.count)*100
+
+health_data_adj$Affected_population =round( health_data_adj$Data_Value*health_data_adj$PopulationCount*0.01)
+
+view(health_data_adj)
+
+view(measure_summary)
+```
+
+```{r}
+per_state_summary <- health_data_adj %>% group_by(StateDesc, Category, Measure, Short_Question_Text) %>% summarise(
+  Total.percentage = sum(Data_Value*PopulationCount)/sum(PopulationCount),
+  Population = sum(PopulationCount),
+  Population.affected = round(sum(Data_Value*PopulationCount)/100)
+  
+)
+
+view(per_state_summary)
+```
+
+```{r}
+boxplot(per_state_summary[per_state_summary$Short_Question_Text == "Cholesterol Screening",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "Health Insurance",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "Taking BP Medication",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "Annual Checkup",]$Total.percentage,
+        names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"),
+        ylim = c(0,100)
+        )
+
+boxplot(per_state_summary[per_state_summary$Short_Question_Text == "Arthritis",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "Cancer (except skin)",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "Chronic Kidney Disease",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "COPD",]$Total.percentage,
+        names = c("Arthritis", "Cancer (!skin)", "Kidney disease", "COPD")
+        #ylim = c(0,100)
+        )
+
+boxplot(per_state_summary[per_state_summary$Short_Question_Text == "Coronary Heart Disease",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "Current Asthma",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "Diabetes",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "High Blood Pressure",]$Total.percentage,
+        names = c("Cor heart dis", "Asthma", "Diabetes", "High BP")
+        #ylim = c(0,100)
+        )
+
+boxplot(per_state_summary[per_state_summary$Short_Question_Text == "High Cholesterol",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "Mental Health",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "Physical Health",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "Stroke",]$Total.percentage,
+        names = c("Cholesterol", "Mental Health", "Physical Health", "Stroke")
+        #ylim = c(0,100)
+        )
+
+per_state_summary$Short_Question_Text <- factor(per_state_summary$Short_Question_Text, levels = c("Cholesterol Screening","Health Insurance","Taking BP Medication","Annual Checkup","Arthritis","Cancer (except skin)","Chronic Kidney Disease","COPD","Coronary Heart Disease","Current Asthma","Diabetes","High Blood Pressure","High Cholesterol","Mental Health","Physical Health","Stroke"))
+
+boxplot(Total.percentage ~ Short_Question_Text, data = per_state_summary)
+```
+
+```{r}
+Ohio <- per_state_summary[(per_state_summary$StateDesc == "Ohio" & per_state_summary$Category == "Prevention"),]
+
+Florida <- per_state_summary[(per_state_summary$StateDesc == "Florida" & per_state_summary$Category == "Prevention"),]
+
+counts <- matrix(c(Ohio$Total.percentage, Florida$Total.percentage), nrow = 2, byrow = TRUE)
+
+barplot(counts, names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"), col = c("dodgerblue", "chartreuse3"), beside = TRUE)
+
+Ohio
+Florida
+
+```
+
+```{r}
+res1 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Cholesterol Screening",]$Population.affected, Florida[Florida$Short_Question_Text == "Cholesterol Screening",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Cholesterol Screening",]$Population, Florida[Florida$Short_Question_Text == "Cholesterol Screening",]$Population), alternative ="two.sided")
+
+res1
+
+res2 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Health Insurance",]$Population.affected, Florida[Florida$Short_Question_Text == "Health Insurance",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Health Insurance",]$Population, Florida[Florida$Short_Question_Text == "Health Insurance",]$Population), alternative ="two.sided")
+
+res2
+
+res3 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Taking BP Medication",]$Population.affected, Florida[Florida$Short_Question_Text == "Taking BP Medication",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Taking BP Medication",]$Population, Florida[Florida$Short_Question_Text == "Taking BP Medication",]$Population), alternative ="two.sided")
+
+res3
+
+res4 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Annual Checkup",]$Population.affected, Florida[Florida$Short_Question_Text == "Annual Checkup",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Annual Checkup",]$Population, Florida[Florida$Short_Question_Text == "Annual Checkup",]$Population), alternative ="two.sided")
+
+res4
+```
+

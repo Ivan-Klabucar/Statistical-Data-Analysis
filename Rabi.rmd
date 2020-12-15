@@ -13,8 +13,13 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(tidyverse)
 library(dbplyr)
+
+#Učitavanje podataka iz skupa
+
 health_data = read.csv("data_health_and_prevention.csv")
 #view(health_data)
+
+#Pretvaranje stringova u kategorijske podatke
 
 health_data$StateDesc = as.factor(health_data$StateDesc)
 health_data$CityName = as.factor(health_data$CityName)
@@ -23,25 +28,50 @@ health_data$Measure = as.factor(health_data$Measure)
 health_data$DataValueTypeID = as.factor(health_data$DataValueTypeID)
 health_data$Short_Question_Text = as.factor(health_data$Short_Question_Text)
 
+#Izdvajanje podataka koji su prilagođeni po dobi - samo s njima radim
+
 health_data_adj = health_data[health_data$DataValueTypeID== "AgeAdjPrv",]
 #view(health_data_adj)
 
-head(health_data_adj)
+#Dodavanje stupca za postotak u svom mjerenom stanovništvu 
 
+health_data_adj$Percentage_in_Total = health_data_adj$Data_Value*health_data_adj$PopulationCount/sum(state_data$Population.count)
+
+#Dodavanje stupca za broj ljudi obuhvaćenih mjerom
+
+health_data_adj$Affected_population =round( health_data_adj$Data_Value*health_data_adj$PopulationCount*0.01)
+
+#Definiranje redoslijeda za Mjere - bit ce potrebno kasnije
+
+health_data_adj$Short_Question_Text <- factor(health_data_adj$Short_Question_Text, levels = c("Cholesterol Screening","Health Insurance","Taking BP Medication","Annual Checkup","Arthritis","Cancer (except skin)","Chronic Kidney Disease","COPD","Coronary Heart Disease","Current Asthma","Diabetes","High Blood Pressure","High Cholesterol","Mental Health","Physical Health","Stroke"))
+
+#Kratki pregled podataka
+
+head(health_data_adj)
 dim(health_data_adj)
-unique(health_data_adj$Data_Value_Unit)
+
+#Broj saveznih država
+
 unique(health_data_adj$StateDesc)
+
+#Broj preventivnih mjera i zdravstvenih rezultata
 
 unique(health_data_adj[health_data_adj$Category == "Prevention",]["Measure"])
 unique(health_data_adj[health_data_adj$Category == "Health Outcomes",]["Measure"])
 ```
 
 ```{r}
+#R-ov summary
 summary(health_data_adj)
+
+#Primijeti da se pojavljuje više gradova s istim nazivom - u razlicitim su drzavama
+
 ```
 
 
 ```{r}
+#Podaci o populaciji i broju gradova za svaku saveznu državu
+
 state_data <- health_data_adj %>% group_by(StateDesc) %>% summarise(
   City.count = n_distinct(CityName),
   Population.count = sum(unique(PopulationCount))
@@ -51,8 +81,10 @@ state_data
 ```
 
 ```{r}
+#Mjere položaja i rasipanja za svaku preventivnu mjeru i health outcome
+
 measure_summary <- health_data_adj %>% group_by(Measure) %>% summarise(
-  Total.percentage = sum(Data_Value*PopulationCount*0.01/sum(state_data$Population.count))*100,
+  Total.percentage = sum(Data_Value*PopulationCount/sum(state_data$Population.count)),
   Median.percentage = median(Data_Value),
   Q1.percentage = quantile(Data_Value, probs = 0.25),
   Q3.percentage = quantile(Data_Value, probs = 0.75),
@@ -61,19 +93,77 @@ measure_summary <- health_data_adj %>% group_by(Measure) %>% summarise(
   Range.percentage = max(Data_Value)-min(Data_Value),
   IQR.percentage = IQR(Data_Value),
   Std.percentage = sd(Data_Value)
-  #CoV.percentage = cv(Data_Value)
 )
-
-health_data_adj$Percentage_in_Total = health_data_adj$Data_Value*health_data_adj$PopulationCount*0.01/sum(state_data$Population.count)*100
-
-health_data_adj$Affected_population =round( health_data_adj$Data_Value*health_data_adj$PopulationCount*0.01)
-
-view(health_data_adj)
 
 view(measure_summary)
 ```
 
+
 ```{r}
+#Boxplotovi za cjelokupne podatke po mjerama
+myBlue <- rgb(0.1,0.1,0.7,0.5)
+myGreen <- rgb(0.3,0.8,0.1,0.6)
+
+boxplot(health_data_adj[health_data_adj$Short_Question_Text == "Cholesterol Screening",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "Health Insurance",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "Taking BP Medication",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "Annual Checkup",]$Data_Value,
+        names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"),
+        col = myBlue
+        #ylim = c(0,100)
+        )
+
+boxplot(health_data_adj[health_data_adj$Short_Question_Text == "Arthritis",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "Cancer (except skin)",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "Chronic Kidney Disease",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "COPD",]$Data_Value,
+        names = c("Arthritis", "Cancer (!skin)", "Kidney disease", "COPD"),
+        col = myGreen
+        #ylim = c(0,100)
+        )
+
+boxplot(health_data_adj[health_data_adj$Short_Question_Text == "Coronary Heart Disease",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "Current Asthma",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "Diabetes",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "High Blood Pressure",]$Data_Value,
+        names = c("Cor heart dis", "Asthma", "Diabetes", "High BP"),
+        col = myGreen
+        #ylim = c(0,100)
+        )
+
+boxplot(health_data_adj[health_data_adj$Short_Question_Text == "High Cholesterol",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "Mental Health",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "Physical Health",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "Stroke",]$Data_Value,
+        names = c("Cholesterol", "Mental Health", "Physical Health", "Stroke"),
+        col = myGreen
+        #ylim = c(0,100)
+        )
+
+# Prepare a vector of colors with specific color for Nairobi and Eskimo
+myColors <- c(rep(rgb(0.1,0.1,0.7,0.5), 4), rep(rgb(0.3,0.8,0.1,0.6), 12))
+
+
+boxplot(Data_Value ~ Short_Question_Text, data = health_data_adj, col = myColors)
+
+#Histogrami za svaku mjeru, skoro svi pokazuju vise-manje normalnu razdiobu, samo BP medication izgleda bimodalno
+
+for (measure in unique(health_data_adj$Short_Question_Text)) {
+  if (unique(health_data_adj[health_data_adj$Short_Question_Text == measure,]$Category) == c("Prevention")){
+    color = myBlue
+  } else {
+    color = myGreen
+  }
+  hist(health_data_adj[health_data_adj$Short_Question_Text == measure,]$Data_Value, main = measure, xlab = "%", col = color)
+}
+
+```
+
+
+
+```{r}
+#Statistike po saveznim državama
+
 per_state_summary <- health_data_adj %>% group_by(StateDesc, Category, Measure, Short_Question_Text) %>% summarise(
   Total.percentage = sum(Data_Value*PopulationCount)/sum(PopulationCount),
   Population = sum(PopulationCount),
@@ -85,19 +175,22 @@ view(per_state_summary)
 ```
 
 ```{r}
+#Boxplotovi za podatke ako grupiramo po saveznim državama
+
 boxplot(per_state_summary[per_state_summary$Short_Question_Text == "Cholesterol Screening",]$Total.percentage,
         per_state_summary[per_state_summary$Short_Question_Text == "Health Insurance",]$Total.percentage,
         per_state_summary[per_state_summary$Short_Question_Text == "Taking BP Medication",]$Total.percentage,
         per_state_summary[per_state_summary$Short_Question_Text == "Annual Checkup",]$Total.percentage,
         names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"),
-        ylim = c(0,100)
+        col = myBlue
         )
 
 boxplot(per_state_summary[per_state_summary$Short_Question_Text == "Arthritis",]$Total.percentage,
         per_state_summary[per_state_summary$Short_Question_Text == "Cancer (except skin)",]$Total.percentage,
         per_state_summary[per_state_summary$Short_Question_Text == "Chronic Kidney Disease",]$Total.percentage,
         per_state_summary[per_state_summary$Short_Question_Text == "COPD",]$Total.percentage,
-        names = c("Arthritis", "Cancer (!skin)", "Kidney disease", "COPD")
+        names = c("Arthritis", "Cancer (!skin)", "Kidney disease", "COPD"),
+        col = myGreen
         #ylim = c(0,100)
         )
 
@@ -105,7 +198,8 @@ boxplot(per_state_summary[per_state_summary$Short_Question_Text == "Coronary Hea
         per_state_summary[per_state_summary$Short_Question_Text == "Current Asthma",]$Total.percentage,
         per_state_summary[per_state_summary$Short_Question_Text == "Diabetes",]$Total.percentage,
         per_state_summary[per_state_summary$Short_Question_Text == "High Blood Pressure",]$Total.percentage,
-        names = c("Cor heart dis", "Asthma", "Diabetes", "High BP")
+        names = c("Cor heart dis", "Asthma", "Diabetes", "High BP"),
+        col = myGreen
         #ylim = c(0,100)
         )
 
@@ -113,16 +207,17 @@ boxplot(per_state_summary[per_state_summary$Short_Question_Text == "High Cholest
         per_state_summary[per_state_summary$Short_Question_Text == "Mental Health",]$Total.percentage,
         per_state_summary[per_state_summary$Short_Question_Text == "Physical Health",]$Total.percentage,
         per_state_summary[per_state_summary$Short_Question_Text == "Stroke",]$Total.percentage,
-        names = c("Cholesterol", "Mental Health", "Physical Health", "Stroke")
+        names = c("Cholesterol", "Mental Health", "Physical Health", "Stroke"),
+        col = myGreen
         #ylim = c(0,100)
         )
 
-per_state_summary$Short_Question_Text <- factor(per_state_summary$Short_Question_Text, levels = c("Cholesterol Screening","Health Insurance","Taking BP Medication","Annual Checkup","Arthritis","Cancer (except skin)","Chronic Kidney Disease","COPD","Coronary Heart Disease","Current Asthma","Diabetes","High Blood Pressure","High Cholesterol","Mental Health","Physical Health","Stroke"))
-
-boxplot(Total.percentage ~ Short_Question_Text, data = per_state_summary)
+boxplot(Total.percentage ~ Short_Question_Text, data = per_state_summary, col = myColors)
 ```
 
 ```{r}
+#Deskriptivna statistika za Ohio i Floridu
+
 Ohio <- per_state_summary[(per_state_summary$StateDesc == "Ohio" & per_state_summary$Category == "Prevention"),]
 
 Florida <- per_state_summary[(per_state_summary$StateDesc == "Florida" & per_state_summary$Category == "Prevention"),]
@@ -137,6 +232,8 @@ Florida
 ```
 
 ```{r}
+#Hi-kvadrat testovi proporcije za Ohio i Floridu
+
 res1 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Cholesterol Screening",]$Population.affected, Florida[Florida$Short_Question_Text == "Cholesterol Screening",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Cholesterol Screening",]$Population, Florida[Florida$Short_Question_Text == "Cholesterol Screening",]$Population), alternative ="l")
 
 res1
@@ -155,17 +252,19 @@ res4
 ```
 
 ```{r}
-barplot(c(Illinois_COPD$Total.percentage, Iowa_COPD$Total.percentage, S_Dakota_COPD$Total.percentage), col = c("indianred3", "royalblue3", "seagreen3"), names = c("Illinois", "Iowa", "South Dakota"))
-```
-
-
-```{r}
+#Deskriptivna statistika za odabrane savezne drzave
 Illinois_COPD <- per_state_summary[(per_state_summary$StateDesc == "Illinois" & per_state_summary$Short_Question_Text == "COPD"),]
 
 Iowa_COPD <- per_state_summary[(per_state_summary$StateDesc == "Iowa" & per_state_summary$Short_Question_Text == "COPD"),]
 
 S_Dakota_COPD <- per_state_summary[(per_state_summary$StateDesc == "South Dakota" & per_state_summary$Short_Question_Text == "COPD"),]
 
+barplot(c(Illinois_COPD$Total.percentage, Iowa_COPD$Total.percentage, S_Dakota_COPD$Total.percentage), col = c("indianred3", "royalblue3", "seagreen3"), names = c("Illinois", "Iowa", "South Dakota"))
+```
+
+
+```{r}
+#Hi-kvadrat test proporcije za COPD u odabranim drzavama
 res5 <- prop.test(c(Illinois_COPD$Population.affected, Iowa_COPD$Population.affected, S_Dakota_COPD$Population.affected), c(Illinois_COPD$Population, Iowa_COPD$Population, S_Dakota_COPD$Population))
 
 res5

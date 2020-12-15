@@ -129,7 +129,7 @@ Florida <- per_state_summary[(per_state_summary$StateDesc == "Florida" & per_sta
 
 counts <- matrix(c(Ohio$Total.percentage, Florida$Total.percentage), nrow = 2, byrow = TRUE)
 
-barplot(counts, names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"), col = c("dodgerblue", "chartreuse3"), beside = TRUE)
+barplot(counts, names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"), col = c("royalblue3", "seagreen3"), beside = TRUE)
 
 Ohio
 Florida
@@ -137,20 +137,37 @@ Florida
 ```
 
 ```{r}
-res1 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Cholesterol Screening",]$Population.affected, Florida[Florida$Short_Question_Text == "Cholesterol Screening",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Cholesterol Screening",]$Population, Florida[Florida$Short_Question_Text == "Cholesterol Screening",]$Population), alternative ="two.sided")
+res1 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Cholesterol Screening",]$Population.affected, Florida[Florida$Short_Question_Text == "Cholesterol Screening",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Cholesterol Screening",]$Population, Florida[Florida$Short_Question_Text == "Cholesterol Screening",]$Population), alternative ="l")
 
 res1
 
-res2 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Health Insurance",]$Population.affected, Florida[Florida$Short_Question_Text == "Health Insurance",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Health Insurance",]$Population, Florida[Florida$Short_Question_Text == "Health Insurance",]$Population), alternative ="two.sided")
+res2 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Health Insurance",]$Population.affected, Florida[Florida$Short_Question_Text == "Health Insurance",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Health Insurance",]$Population, Florida[Florida$Short_Question_Text == "Health Insurance",]$Population), alternative ="l")
 
 res2
 
-res3 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Taking BP Medication",]$Population.affected, Florida[Florida$Short_Question_Text == "Taking BP Medication",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Taking BP Medication",]$Population, Florida[Florida$Short_Question_Text == "Taking BP Medication",]$Population), alternative ="two.sided")
+res3 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Taking BP Medication",]$Population.affected, Florida[Florida$Short_Question_Text == "Taking BP Medication",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Taking BP Medication",]$Population, Florida[Florida$Short_Question_Text == "Taking BP Medication",]$Population), alternative ="g")
 
 res3
 
-res4 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Annual Checkup",]$Population.affected, Florida[Florida$Short_Question_Text == "Annual Checkup",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Annual Checkup",]$Population, Florida[Florida$Short_Question_Text == "Annual Checkup",]$Population), alternative ="two.sided")
+res4 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Annual Checkup",]$Population.affected, Florida[Florida$Short_Question_Text == "Annual Checkup",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Annual Checkup",]$Population, Florida[Florida$Short_Question_Text == "Annual Checkup",]$Population), alternative ="g")
 
 res4
+```
+
+```{r}
+barplot(c(Illinois_COPD$Total.percentage, Iowa_COPD$Total.percentage, S_Dakota_COPD$Total.percentage), col = c("indianred3", "royalblue3", "seagreen3"), names = c("Illinois", "Iowa", "South Dakota"))
+```
+
+
+```{r}
+Illinois_COPD <- per_state_summary[(per_state_summary$StateDesc == "Illinois" & per_state_summary$Short_Question_Text == "COPD"),]
+
+Iowa_COPD <- per_state_summary[(per_state_summary$StateDesc == "Iowa" & per_state_summary$Short_Question_Text == "COPD"),]
+
+S_Dakota_COPD <- per_state_summary[(per_state_summary$StateDesc == "South Dakota" & per_state_summary$Short_Question_Text == "COPD"),]
+
+res5 <- prop.test(c(Illinois_COPD$Population.affected, Iowa_COPD$Population.affected, S_Dakota_COPD$Population.affected), c(Illinois_COPD$Population, Iowa_COPD$Population, S_Dakota_COPD$Population))
+
+res5
 ```
 

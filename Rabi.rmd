@@ -33,6 +33,15 @@ health_data$Short_Question_Text = as.factor(health_data$Short_Question_Text)
 health_data_adj = health_data[health_data$DataValueTypeID== "AgeAdjPrv",]
 #view(health_data_adj)
 
+#Podaci o populaciji i broju gradova za svaku saveznu državu
+
+state_data <- health_data_adj %>% group_by(StateDesc) %>% summarise(
+  City.count = n_distinct(CityName),
+  Population.count = sum(unique(PopulationCount))
+)
+
+state_data
+
 #Dodavanje stupca za postotak u svom mjerenom stanovništvu 
 
 health_data_adj$Percentage_in_Total = health_data_adj$Data_Value*health_data_adj$PopulationCount/sum(state_data$Population.count)
@@ -68,17 +77,6 @@ summary(health_data_adj)
 
 ```
 
-
-```{r}
-#Podaci o populaciji i broju gradova za svaku saveznu državu
-
-state_data <- health_data_adj %>% group_by(StateDesc) %>% summarise(
-  City.count = n_distinct(CityName),
-  Population.count = sum(unique(PopulationCount))
-)
-
-state_data
-```
 
 ```{r}
 #Mjere položaja i rasipanja za svaku preventivnu mjeru i health outcome

@@ -262,7 +262,7 @@ res5
 
 # Utjecaj metoda prevencije na bolesti
 
-Napravimo multivarijantnu linearnu regresiju kako bismo perliminarno vidjeli na koje bolesti naše mjere prevencije imaju značajni učinak.
+Napravimo multivarijantnu linearnu regresiju kako bismo perliminarno vidjeli na koje bolesti naše mjere prevencije imaju značajni učinak. Za svaku bolest odredit ćemo model oblika: Očekivan postotak bolesti = SUM( koeficijent_i* postotak_prevencije_i  ), na razini čitave države.
 
 ```{r}
 
@@ -289,9 +289,8 @@ per_city_data <- health_data_adj %>% group_by(CityName, PopulationCount) %>% sum
 \newpage
 
 ```{r}
-head(per_city_data)
 formula <- cbind(arthritis, cancer_noskin, copd, coronary_heart_disease, asthma, diabetes, high_bp, high_col, mental_health, physical_health, stroke, ckd) ~ checkup + insurance + bp_med + chol_screen
 fit <- lm(formula, data=per_city_data)
 summary(fit)
 ```
-U rezultatima se Kronične bubrežne bolesti ističu kao zanimljive jer ih relativno dobro predviđamo linearnom regresijom, a također čini se kao da je jedan regresor nepotreban.
+Rezultati kronične bubrežne bolesti ističu se kao zanimljivi jer ih relativno dobro predviđamo linearnom regresijom, a također čini se kao da je jedan regresor nepotreban.

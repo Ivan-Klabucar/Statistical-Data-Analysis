@@ -63,7 +63,6 @@ Prvo pogledajmo grafove koje prikazuju pojedinačne veze između metode prevenci
 #Chronic Kidney Disease data
 CKD_data <- per_city_data[, c("checkup", "insurance", "bp_med", "chol_screen", "ckd", "CityName", "PopulationCount")]
 
-head(CKD_data)
 plot(CKD_data$checkup, CKD_data$ckd, xlab="Godišnji pregled (%)", ylab="Kronične bolesti bubrega (%)")
 plot(CKD_data$insurance, CKD_data$ckd, xlab="Zdravstveno osigurani (%)", ylab="Kronične bolesti bubrega (%)")
 plot(CKD_data$bp_med, CKD_data$ckd, xlab="Ljekovi za krvni tlak (%)", ylab="Kronične bolesti bubrega (%)")

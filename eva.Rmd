@@ -5,7 +5,7 @@ date: "15/12/2020"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, tidy=TRUE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -16,9 +16,9 @@ library('knitr')
 
 # Uvod
 
-Navike svakog čovjeka mogu imati pozitivan ili negativan utjecaj na njegovo zdravlje. U moderno doba uobičajeno je da čovjek iz raznih izvora saznaje razne informacije o utjecaju pojedinih akcija na njegovo zdravlje. U moru informacija ponekad je, međutim, teško razlučiti bitno od nebitnog, istinito od neistintog i odrediti koje navike imaju stvarni utjecaj na zdravlje i koliki taj utjecaj zapravo jest. 
+Navike svakog čovjeka mogu imati pozitivan ili negativan utjecaj na njegovo zdravlje. U moderno doba uobičajeno je da čovjek iz raznih izvora saznaje razne informacije o utjecaju pojedinih akcija na zdravlje. U moru informacija ponekad je, međutim, teško razlučiti bitno od nebitnog, istinito od neistintog i odrediti koje navike imaju stvarni utjecaj na zdravlje i koliki taj utjecaj zapravo jest. 
 
-Cilj ovog projekta je istražiti preventivne mjere i zdravstvene tegobe koje imaju ljudi u raznim američkim gradovima, postoji li razlika u navikama ljudi u različitim gradovima i potencijalno pronaći vezu između pojedinih navika i njihovih utjecaja na zdravlje.
+Cilj ovog projekta je istražiti preventivne mjere i zdravstvene tegobe koje imaju ljudi u raznim američkim gradovima, utvrditi postoji li razlika u navikama ljudi u različitim gradovima i potencijalno pronaći vezu između pojedinih navika i zdravstvenih stanja.
 
 # Učitavanje podataka
 
@@ -54,7 +54,7 @@ health_data$DataValueTypeID = as.factor(health_data$DataValueTypeID)
 health_data$Short_Question_Text = as.factor(health_data$Short_Question_Text)
 ```
 
-Svi podatci u datasetu izraženi su u dvije varijante: kao sirova stopa (Crude Rate) i kao dobno prilagođena stopa (Age-Adjusted Rate). Za razliku od sirove stope, dobno prilagođena uzima u obzir razlike u dobnoj raspodijeli stanovništva u različitim gradovima. S obzirom da države i gradove koje ćemo uspoređivati imaju različitu dobnu raspodijelu stanovništva, odlučili smo koristiti dobno prilagođene podatke.
+Svi podatci u datasetu izraženi su u dvije varijante: kao sirova stopa (Crude Rate) i kao dobno prilagođena stopa (Age-Adjusted Rate). Za razliku od sirove stope, dobno prilagođena uzima u obzir razlike u dobnoj raspodjeli stanovništva u različitim gradovima. S obzirom da države i gradove koje ćemo uspoređivati imaju različitu dobnu raspodjelu stanovništva, odlučili smo koristiti dobno prilagođene podatke.
 
 ```{r}
 health_data_adj = health_data[health_data$DataValueTypeID== "AgeAdjPrv",]
@@ -103,7 +103,7 @@ myBlue <- rgb(0.1,0.1,0.7,0.5)
 myGreen <- rgb(0.3,0.8,0.1,0.6)
 ```
 
-Prikaz raspodijele udjela građana koji primjenjuju pojedine preventivne mjere:
+Prikaz raspodjele udjela građana koji primjenjuju pojedine preventivne mjere i imaju pojedina zdravstvena stanja:
 
 ```{r, echo=FALSE}
 boxplot(health_data_adj[health_data_adj$Short_Question_Text == "Cholesterol Screening",]$Data_Value,
@@ -115,18 +115,97 @@ boxplot(health_data_adj[health_data_adj$Short_Question_Text == "Cholesterol Scre
         #ylim = c(0,100)
         )
 
+onlyHealthOutcomes = health_data_adj %>% filter(Category == "Health Outcomes")
+# ne znam zasto prikazuje i podatke koji nisu prosli kroz filter :(
+par(mar=c(12,5,1,1))
+boxplot(Data_Value ~ Short_Question_Text, onlyHealthOutcomes, col = myGreen, las=2, xlab="")
+mtext("Short_Question_Text", side=1, line=10.5)
+
 ```
 
+Pregledom histograma za svaku mjeru, primjećujemo da ih većina prati približno normalnu razdiobu, uz iznimku BP Medication koji izgleda bimodalno:
+
 ```{r, echo=FALSE}
-onlyHealthOutcomes = health_data_adj %>% filter(Category == "Health Outcomes")
+old.par <- par(mfrow=c(2,3))
+for (measure in unique(health_data_adj$Short_Question_Text)) {
+  if (unique(health_data_adj[health_data_adj$Short_Question_Text == measure,]$Category) == c("Prevention")){
+    color = myBlue
+  } else {
+    color = myGreen
+  }
+  hist(health_data_adj[health_data_adj$Short_Question_Text == measure,]$Data_Value, main = measure, xlab = "%", col = color)
+}
+par(old.par)
+```
 
-plot <- ggplot(onlyHealthOutcomes, aes(Short_Question_Text, Data_Value), color=myGreen) + geom_point()
+```{r, echo=FALSE, message=FALSE, include=FALSE}
+#Ovo je nemoguce lijepo formatirat u pdfu pa sam izbacila
+#Mjere položaja i rasipanja za svaku preventivnu mjeru i health outcome
+measure_summary <- health_data_adj %>% 
+  group_by(Short_Question_Text) %>% summarise(
+  Total.percentage = sum(Data_Value*PopulationCount/sum(state_data$Population.count)),
+  Median.percentage = median(Data_Value),
+  Q1.percentage = quantile(Data_Value, probs = 0.25),
+  Q3.percentage = quantile(Data_Value, probs = 0.75),
+  Min.percentage = min(Data_Value),
+  Max.percentage = max(Data_Value),
+  Range.percentage = max(Data_Value)-min(Data_Value),
+  IQR.percentage = IQR(Data_Value),
+  Std.percentage = sd(Data_Value)
+)
 
-plot + theme_minimal() + 
-  theme(legend.title = element_text(size=10), 
-        legend.text = element_text(size=6),
-        axis.text.y = element_text(size = 8),
-        axis.text.x = element_text(size = 8, angle = 60, vjust = 0.5))
+```
 
-boxplot(Data_Value ~ Short_Question_Text, onlyHealthOutcomes, col = myGreen)
+## Podaci grupirani po saveznim državama
+
+Prikaz raspodjele udjela građana po državama koji primjenjuju pojedine preventivne mjere i koji imaju pojedina zdravstvena stanja:
+
+```{r, echo=FALSE}
+#Boxplotovi za podatke ako grupiramo po saveznim državama
+
+boxplot(per_state_summary[per_state_summary$Short_Question_Text == "Cholesterol Screening",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "Health Insurance",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "Taking BP Medication",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "Annual Checkup",]$Total.percentage,
+        names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"),
+        col = myBlue
+        )
+
+#isti problem kao i gore
+onlyHealthOutcomes = per_state_summary %>% filter(Category == "Health Outcomes")
+par(mar=c(12,5,1,1))
+boxplot(Total.percentage ~ Short_Question_Text, data = onlyHealthOutcomes, col = myGreen, las=2, xlab="")
+mtext("Short_Question_Text", side=1, line=10.5)
+```
+
+## Statistike - Ohio i Florida
+
+Prikaz udjela stanovnika koji se pridržavaju pojedinih mjera za Ohio i Floridu:
+
+```{r, echo=FALSE}
+#Deskriptivna statistika za Ohio i Floridu
+
+Ohio <- per_state_summary[(per_state_summary$StateDesc == "Ohio" & per_state_summary$Category == "Prevention"),]
+
+Florida <- per_state_summary[(per_state_summary$StateDesc == "Florida" & per_state_summary$Category == "Prevention"),]
+
+counts <- matrix(c(Ohio$Total.percentage, Florida$Total.percentage), nrow = 2, byrow = TRUE)
+
+barplot(counts, names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"), col = c(myBlue, myGreen), beside = TRUE)
+
+```
+
+## Statistike - Illinois, Iowa i South Dakota
+
+Prikaz udjela stanovništva koje boluje od kroničnih plućnih bolesti (COPD) u državama Illinois, Iowa i South Dakota:
+
+```{r, echo=FALSE}
+#Deskriptivna statistika za odabrane savezne drzave
+Illinois_COPD <- per_state_summary[(per_state_summary$StateDesc == "Illinois" & per_state_summary$Short_Question_Text == "COPD"),]
+
+Iowa_COPD <- per_state_summary[(per_state_summary$StateDesc == "Iowa" & per_state_summary$Short_Question_Text == "COPD"),]
+
+S_Dakota_COPD <- per_state_summary[(per_state_summary$StateDesc == "South Dakota" & per_state_summary$Short_Question_Text == "COPD"),]
+
+barplot(c(Illinois_COPD$Total.percentage, Iowa_COPD$Total.percentage, S_Dakota_COPD$Total.percentage), col = c("indianred3", myBlue, myGreen), names = c("Illinois", "Iowa", "South Dakota"))
 ```

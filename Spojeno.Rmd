@@ -1,0 +1,297 @@
+---
+title: "Spojeno"
+author: "Grgur"
+date: "12/16/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(width = 60)
+```
+
+```{r, echo=FALSE, message=FALSE}
+library('tidyverse')
+library('knitr')
+library('formatR')
+library('dbplyr')
+library('ggplot2')
+```
+
+# Uvod
+
+Navike svakog čovjeka mogu imati pozitivan ili negativan utjecaj na njegovo zdravlje. U moderno doba uobičajeno je da čovjek iz raznih izvora saznaje razne informacije o utjecaju pojedinih akcija na njegovo zdravlje. U moru informacija ponekad je, međutim, teško razlučiti bitno od nebitnog, istinito od neistintog i odrediti koje navike imaju stvarni utjecaj na zdravlje i koliki taj utjecaj zapravo jest. 
+
+Cilj ovog projekta je istražiti preventivne mjere i zdravstvene tegobe koje imaju ljudi u raznim američkim gradovima, postoji li razlika u navikama ljudi u različitim gradovima i potencijalno pronaći vezu između pojedinih navika i njihovih utjecaja na zdravlje.
+
+# Učitavanje podataka
+
+## Učitavanje i upoznavanje s podatcima
+
+Prvi korak je učitavanje i osnovno upoznavanje s podatcima.
+
+```{r}
+health_data = read.csv("data_health_and_prevention.csv")
+dim(health_data)
+```
+Podatci se sastoje od 16000 redaka i 10 stupaca. Svaki redak izražava udio stanovnika nekog američkog grada koji se pridržava određene preventivne mjere ili ima određeno zdravstveno stanje.
+
+\newpage
+
+Tablice mogućih mjera i zdravstvenih stanja i njihov skraćen oblik dane su ovdje:
+
+```{r, echo=FALSE}
+preventions = health_data[health_data["Category"] == "Prevention", c("Short_Question_Text", "Measure")] %>% distinct()
+kable(preventions, align = "lr", caption = "Prevention")
+illnesses = health_data[health_data["Category"] == "Health Outcomes", c("Short_Question_Text", "Measure")] %>% distinct()
+kable(illnesses, align = "lr", caption = "Health Outcomes")
+```
+\newpage
+## Manipulacija podatcima
+
+Za lakšu obradu podataka pretvaramo sljedeće stupce u faktorske varijable:
+
+```{r}
+health_data$StateDesc = as.factor(health_data$StateDesc)
+health_data$CityName = as.factor(health_data$CityName)
+health_data$Category = as.factor(health_data$Category)
+health_data$Measure = as.factor(health_data$Measure)
+health_data$DataValueTypeID = as.factor(health_data$DataValueTypeID)
+health_data$Short_Question_Text = as.factor(health_data$Short_Question_Text)
+```
+
+Svi podatci u datasetu izraženi su u dvije varijante: kao sirova stopa (Crude Rate) i kao dobno prilagođena stopa (Age-Adjusted Rate). Za razliku od sirove stope, dobno prilagođena uzima u obzir razlike u dobnoj raspodjeli stanovništva u različitim gradovima. S obzirom da države i gradove koje ćemo uspoređivati imaju različitu dobnu raspodjelu stanovništva, odlučili smo koristiti dobno prilagođene podatke.
+
+```{r}
+health_data_adj = health_data[health_data$DataValueTypeID== "AgeAdjPrv",]
+```
+
+U pomoćne varijable dodajemo podatke o populaciji i broju gradova za svaku saveznu državu i statistike po pojedinim saveznim državama.
+
+```{r, message=FALSE}
+state_data <- health_data_adj %>% group_by(StateDesc) %>% summarise(
+  City.count = n_distinct(CityName),
+  Population.count = sum(unique(PopulationCount))
+)
+
+per_state_summary <- health_data_adj %>% 
+  group_by(StateDesc, Category, Measure, Short_Question_Text) %>% summarise(
+  Total.percentage = sum(Data_Value*PopulationCount)/sum(PopulationCount),
+  Population = sum(PopulationCount),
+  Population.affected = round(sum(Data_Value*PopulationCount)/100)
+)
+
+```
+
+Za daljnji rad u dataset dodajemo nove stupce za postotak u svom mjerenom stanovništvu i ukupan broj ljudi zahvaćenih određenom mjerom ili zdravstvenim stanjem.
+```{r, message=FALSE}
+health_data_adj$Percentage_in_Total = 
+  health_data_adj$Data_Value*health_data_adj$PopulationCount/sum(state_data$Population.count)
+
+health_data_adj$Affected_population = 
+  round( health_data_adj$Data_Value*health_data_adj$PopulationCount*0.01)
+```
+
+
+```{r, echo=FALSE, message=FALSE}
+#Definiranje redoslijeda za Mjere - bit ce potrebno kasnije
+
+health_data_adj$Short_Question_Text <- factor(health_data_adj$Short_Question_Text, levels = c("Cholesterol Screening","Health Insurance","Taking BP Medication","Annual Checkup","Arthritis","Cancer (except skin)","Chronic Kidney Disease","COPD","Coronary Heart Disease","Current Asthma","Diabetes","High Blood Pressure","High Cholesterol","Mental Health","Physical Health","Stroke"))
+```
+
+\newpage
+
+# Deskriptivna statistika
+
+## Ukupni podatci
+
+```{r, include=FALSE}
+library(ggplot2)
+#myBlue <- rgb(0.1,0.1,0.7,0.5)
+myPurple <- rgb(0.62, 0.64, 0.7)
+#myGreen <- rgb(0.3,0.8,0.1,0.6)
+myBlue <- rgb(0.24, 0.48, 0.54)
+myPink <- rgb(0.86, 0.76, 0.81)
+
+```
+
+Prikaz raspodjele udjela građana koji primjenjuju pojedine preventivne mjere i imaju pojedina zdravstvena stanja:
+
+```{r, echo=FALSE}
+boxplot(health_data_adj[health_data_adj$Short_Question_Text == "Cholesterol Screening",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "Health Insurance",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "Taking BP Medication",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "Annual Checkup",]$Data_Value,
+        names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"),
+        col = myPurple
+        #ylim = c(0,100)
+        )
+
+onlyHealthOutcomes = health_data_adj %>% filter(Category == "Health Outcomes")
+# ne znam zasto prikazuje i podatke koji nisu prosli kroz filter :(
+par(mar=c(12,5,1,1))
+boxplot(Data_Value ~ Short_Question_Text, onlyHealthOutcomes, col = myBlue, las=2, xlab="", ylab = "Value (%)")
+
+```
+
+\newpage
+
+Pregledom histograma za svaku mjeru, primjećujemo da ih većina prati približno normalnu razdiobu, uz iznimku BP Medication koji izgleda bimodalno:
+
+```{r, echo=FALSE}
+old.par <- par(mfrow=c(2,3))
+for (measure in unique(health_data_adj$Short_Question_Text)) {
+  if (unique(health_data_adj[health_data_adj$Short_Question_Text == measure,]$Category) == c("Prevention")){
+    color = myPurple
+  } else {
+    color = myBlue
+  }
+  hist(health_data_adj[health_data_adj$Short_Question_Text == measure,]$Data_Value, main = measure, xlab = "%", col = color)
+}
+par(old.par)
+```
+
+```{r, echo=FALSE, message=FALSE, include=FALSE}
+#Ovo je nemoguce lijepo formatirat u pdfu pa sam izbacila
+#Mjere položaja i rasipanja za svaku preventivnu mjeru i health outcome
+measure_summary <- health_data_adj %>% 
+  group_by(Short_Question_Text) %>% summarise(
+  Total.percentage = sum(Data_Value*PopulationCount/sum(state_data$Population.count)),
+  Median.percentage = median(Data_Value),
+  Q1.percentage = quantile(Data_Value, probs = 0.25),
+  Q3.percentage = quantile(Data_Value, probs = 0.75),
+  Min.percentage = min(Data_Value),
+  Max.percentage = max(Data_Value),
+  Range.percentage = max(Data_Value)-min(Data_Value),
+  IQR.percentage = IQR(Data_Value),
+  Std.percentage = sd(Data_Value)
+)
+
+```
+
+\newpage
+
+## Podaci grupirani po saveznim državama
+
+Prikaz raspodjele udjela građana po državama koji primjenjuju pojedine preventivne mjere i koji imaju pojedina zdravstvena stanja:
+
+```{r, echo=FALSE}
+#Boxplotovi za podatke ako grupiramo po saveznim državama
+
+boxplot(per_state_summary[per_state_summary$Short_Question_Text == "Cholesterol Screening",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "Health Insurance",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "Taking BP Medication",]$Total.percentage,
+        per_state_summary[per_state_summary$Short_Question_Text == "Annual Checkup",]$Total.percentage,
+        names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"),
+        col = myPurple
+        )
+
+#isti problem kao i gore
+onlyHealthOutcomes = per_state_summary %>% filter(Category == "Health Outcomes")
+par(mar=c(12,5,1,1))
+boxplot(Total.percentage ~ Short_Question_Text, data = onlyHealthOutcomes, col = myBlue, las=2, xlab="", ylab="Value(%)")
+```
+
+\newpage
+
+## Statistike - Ohio i Florida
+
+Prikaz udjela stanovnika koji se pridržavaju pojedinih mjera za Ohio i Floridu:
+
+```{r, echo=FALSE}
+#Deskriptivna statistika za Ohio i Floridu
+
+Ohio <- per_state_summary[(per_state_summary$StateDesc == "Ohio" & per_state_summary$Category == "Prevention"),]
+
+Florida <- per_state_summary[(per_state_summary$StateDesc == "Florida" & per_state_summary$Category == "Prevention"),]
+
+counts <- matrix(c(Ohio$Total.percentage, Florida$Total.percentage), nrow = 2, byrow = TRUE)
+
+barplot(counts, names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"), col = c(myPurple, myBlue), beside = TRUE)
+legend("top",
+      legend = c("Ohio", "Florida"),
+       fill = c(myBlue, myPurple))
+
+```
+
+```{r}
+#Hi-kvadrat testovi proporcije za Ohio i Floridu
+
+res1 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Cholesterol Screening",]$Population.affected, Florida[Florida$Short_Question_Text == "Cholesterol Screening",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Cholesterol Screening",]$Population, Florida[Florida$Short_Question_Text == "Cholesterol Screening",]$Population), alternative ="l")
+
+res1
+
+res2 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Health Insurance",]$Population.affected, Florida[Florida$Short_Question_Text == "Health Insurance",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Health Insurance",]$Population, Florida[Florida$Short_Question_Text == "Health Insurance",]$Population), alternative ="l")
+
+res2
+
+res3 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Taking BP Medication",]$Population.affected, Florida[Florida$Short_Question_Text == "Taking BP Medication",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Taking BP Medication",]$Population, Florida[Florida$Short_Question_Text == "Taking BP Medication",]$Population), alternative ="g")
+
+res3
+
+res4 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Annual Checkup",]$Population.affected, Florida[Florida$Short_Question_Text == "Annual Checkup",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Annual Checkup",]$Population, Florida[Florida$Short_Question_Text == "Annual Checkup",]$Population), alternative ="g")
+
+res4
+```
+
+\newpage
+
+## Statistike - Illinois, Iowa i South Dakota
+
+Prikaz udjela stanovništva koje boluje od kroničnih plućnih bolesti (COPD)u državama Illinois, Iowa i South Dakota:
+
+```{r, echo=FALSE}
+#Deskriptivna statistika za odabrane savezne drzave
+Illinois_COPD <- per_state_summary[(per_state_summary$StateDesc == "Illinois" & per_state_summary$Short_Question_Text == "COPD"),]
+
+Iowa_COPD <- per_state_summary[(per_state_summary$StateDesc == "Iowa" & per_state_summary$Short_Question_Text == "COPD"),]
+
+S_Dakota_COPD <- per_state_summary[(per_state_summary$StateDesc == "South Dakota" & per_state_summary$Short_Question_Text == "COPD"),]
+
+barplot(c(Illinois_COPD$Total.percentage, Iowa_COPD$Total.percentage, S_Dakota_COPD$Total.percentage), col = c(myPink, myPurple, myBlue), names = c("Illinois", "Iowa", "South Dakota"))
+```
+
+```{r}
+#Hi-kvadrat test proporcije za COPD u odabranim drzavama
+res5 <- prop.test(c(Illinois_COPD$Population.affected, Iowa_COPD$Population.affected, S_Dakota_COPD$Population.affected), c(Illinois_COPD$Population, Iowa_COPD$Population, S_Dakota_COPD$Population))
+
+res5
+```
+
+\newpage
+
+# Utjecaj metoda prevencije na bolesti
+
+Napravimo multivarijantnu linearnu regresiju kako bismo perliminarno vidjeli na koje bolesti naše mjere prevencije imaju značajni učinak.
+
+```{r}
+
+per_city_data <- health_data_adj %>% group_by(CityName, PopulationCount) %>% summarise(
+  checkup = Data_Value[Short_Question_Text == "Annual Checkup"],
+  insurance = 100.0 - Data_Value[Short_Question_Text == "Health Insurance"],
+  bp_med = Data_Value[Short_Question_Text == "Taking BP Medication"],
+  chol_screen = Data_Value[Short_Question_Text == "Cholesterol Screening"],
+  arthritis = Data_Value[Short_Question_Text == "Arthritis"],
+  cancer_noskin = Data_Value[Short_Question_Text == "Cancer (except skin)"],
+  copd = Data_Value[Short_Question_Text == "COPD"],
+  coronary_heart_disease = Data_Value[Short_Question_Text == "Coronary Heart Disease"],
+  asthma = Data_Value[Short_Question_Text == "Current Asthma"],
+  diabetes = Data_Value[Short_Question_Text == "Diabetes"],
+  high_bp = Data_Value[Short_Question_Text == "High Blood Pressure"],
+  high_col = Data_Value[Short_Question_Text == "High Cholesterol"],
+  mental_health = Data_Value[Short_Question_Text == "Mental Health"],
+  physical_health = Data_Value[Short_Question_Text == "Physical Health"],
+  stroke = Data_Value[Short_Question_Text == "Stroke"],
+  ckd = Data_Value[Short_Question_Text == "Chronic Kidney Disease"]
+)
+```
+
+\newpage
+
+```{r}
+head(per_city_data)
+formula <- cbind(arthritis, cancer_noskin, copd, coronary_heart_disease, asthma, diabetes, high_bp, high_col, mental_health, physical_health, stroke, ckd) ~ checkup + insurance + bp_med + chol_screen
+fit <- lm(formula, data=per_city_data)
+summary(fit)
+```
+U rezultatima se Kronične bubrežne bolesti ističu kao zanimljive jer ih relativno dobro predviđamo linearnom regresijom, a također čini se kao da je jedan regresor nepotreban.

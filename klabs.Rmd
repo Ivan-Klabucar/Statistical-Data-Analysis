@@ -9,77 +9,84 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
-habits = read.csv("data_health_and_prevention.csv")
-head(habits)
-```
+#Utjecaj metoda prevencije na bolesti
+
+Napravimo multivarijantnu linearnu regresiju kako bismo perliminarno vidjeli na koje bolesti naše mjere prevencije imaju značajni učinak.
 
 ```{r}
-library('knitr')
-library('tidyverse')
-habits = habits[habits["DataValueTypeID"] == "AgeAdjPrv",]
-preventions = habits[habits["Category"] == "Prevention", c("Measure", "Short_Question_Text")] %>% distinct()
-kable(preventions, caption = "Possible preventions")
-illnesses = habits[habits["Category"] == "Health Outcomes", c("Measure", "Short_Question_Text")] %>% distinct()
-kable(illnesses, caption = "Possible illnesses")
-```
+library(tidyverse)
+library(dbplyr)
+library(ggplot2)
 
-Istražimo postoji li mjera preventivne zaštite koja je popularnija u saveznoj državi Ohio nego u saveznoj državi Florida.
+health_data = read.csv("data_health_and_prevention.csv")
+
+health_data$StateDesc = as.factor(health_data$StateDesc)
+health_data$CityName = as.factor(health_data$CityName)
+health_data$Category = as.factor(health_data$Category)
+health_data$Measure = as.factor(health_data$Measure)
+health_data$DataValueTypeID = as.factor(health_data$DataValueTypeID)
+health_data$Short_Question_Text = as.factor(health_data$Short_Question_Text)
+
+health_data_adj = health_data[health_data$DataValueTypeID== "AgeAdjPrv",]
+
+per_city_data <- health_data_adj %>% group_by(CityName, PopulationCount) %>% summarise(
+  checkup = Data_Value[Short_Question_Text == "Annual Checkup"],
+  insurance = 100.0 - Data_Value[Short_Question_Text == "Health Insurance"],
+  bp_med = Data_Value[Short_Question_Text == "Taking BP Medication"],
+  chol_screen = Data_Value[Short_Question_Text == "Cholesterol Screening"],
+  arthritis = Data_Value[Short_Question_Text == "Arthritis"],
+  cancer_noskin = Data_Value[Short_Question_Text == "Cancer (except skin)"],
+  copd = Data_Value[Short_Question_Text == "COPD"],
+  coronary_heart_disease = Data_Value[Short_Question_Text == "Coronary Heart Disease"],
+  asthma = Data_Value[Short_Question_Text == "Current Asthma"],
+  diabetes = Data_Value[Short_Question_Text == "Diabetes"],
+  high_bp = Data_Value[Short_Question_Text == "High Blood Pressure"],
+  high_col = Data_Value[Short_Question_Text == "High Cholesterol"],
+  mental_health = Data_Value[Short_Question_Text == "Mental Health"],
+  physical_health = Data_Value[Short_Question_Text == "Physical Health"],
+  stroke = Data_Value[Short_Question_Text == "Stroke"],
+  ckd = Data_Value[Short_Question_Text == "Chronic Kidney Disease"]
+)
+head(per_city_data)
+formula <- cbind(arthritis, cancer_noskin, copd, coronary_heart_disease, asthma, diabetes, high_bp, high_col, mental_health, physical_health, stroke, ckd) ~ checkup + insurance + bp_med + chol_screen
+fit <- lm(formula, data=per_city_data)
+summary(fit)
+```
+U rezultatima se Kronične bubrežne bolesti ističu kao zanimljive jer ih relativno dobro predviđamo linearnom regresijom, a također čini se kao da je jedan regresor nepotreban.
+
+## Kronične Bubrežne bolesti
+
+U ovom potpoglavlju istražit ćemo vezu između ove četiri mjere prevencije i kroničnih bubrežnih bolesti (KBB). Tu vezu pokušat ćemo objasniti metodom linearne regresije, koju ćemo obaviti na razini cijele države.
+
+Prvo pogledajmo grafove koje prikazuju pojedinačne veze između metode prevencija i KBB, na sljedećim grafovima svaka točka predstavlja jedan grad.
+```{r}
+#Chronic Kidney Disease data
+CKD_data <- per_city_data[, c("checkup", "insurance", "bp_med", "chol_screen", "ckd", "CityName", "PopulationCount")]
+
+head(CKD_data)
+plot(CKD_data$checkup, CKD_data$ckd, xlab="Godišnji pregled (%)", ylab="Kronične bolesti bubrega (%)")
+plot(CKD_data$insurance, CKD_data$ckd, xlab="Zdravstveno osigurani (%)", ylab="Kronične bolesti bubrega (%)")
+plot(CKD_data$bp_med, CKD_data$ckd, xlab="Ljekovi za krvni tlak (%)", ylab="Kronične bolesti bubrega (%)")
+plot(CKD_data$chol_screen, CKD_data$ckd, xlab="Pregled kolesterola (%)", ylab="Kronične bolesti bubrega (%)")
+```
+Primjećujemo da postoji jak utjecaj zdravstvenog osiguranja te učestalosti testiranja kolesterola na KBB, no grafovi su previše raspršeni da bi ijedan od njih u potpunosti objasnio fenomen. Iz grafova godišnjih pregleda i uzimanja ljekova za krvni tlak ne možemo previše zaključiti.
 
 ```{r}
-chol_screening_Ohio = habits[habits["StateDesc"] == "Ohio" & habits["Short_Question_Text"] == "Cholesterol Screening","Data_Value"]
-chol_screening_Florida = habits[habits["StateDesc"] == "Florida" & habits["Short_Question_Text"] == "Cholesterol Screening","Data_Value"]
-str_interp("Ohio Chol screening mean: $[.2f]{mean(chol_screening_Ohio)}, Florida chol screening mean: $[.2f]{mean(chol_screening_Florida)}")
+
+fit1 <- lm(CKD_data$ckd ~ CKD_data$insurance + CKD_data$chol_screen + CKD_data$checkup + CKD_data$bp_med)
+summary(fit1)
+qqnorm(fit1$residuals)
+qqline(fit1$residuals, col = "steelblue", lwd = 2)
 ```
-No evidance that Cholesterol screening is more popular in Ohio.
-
-
-
+Reziduali regresije prate normalnu distribuciju dovoljno dobro da možemo opravdati pretpostavku normalnosti greške.
+U zadnjem stupcu rezultata regresije "Pr(>|t|)", za svaki parametar možemo vidjeti p-vrijednost testa o regresijskim koeficijentima. Iz tog stupca možemo očitati da su faktori zdravstvenog osiguranja, pregleda kolesterola, te godišnjih pregleda signifikatni čak i pri jako malim vrijednostima alfa. Isto ne možemo reći i za utjecaj uzimanja ljekova za krvni tlak, tako da ćemo regresiju provesti još jednom, ali ćemo izbaciti taj regresor. 
 
 ```{r}
-checkup_Ohio = habits[habits["StateDesc"] == "Ohio" & habits["Short_Question_Text"] == "Annual Checkup","Data_Value"]
-checkup_Florida = habits[habits["StateDesc"] == "Florida" & habits["Short_Question_Text"] == "Annual Checkup","Data_Value"]
-
-str_interp("Ohio annual checkup mean: $[.2f]{mean(checkup_Ohio)}, Florida annual checkup mean: $[.2f]{mean(checkup_Florida)}")
+fit2 <- lm(CKD_data$ckd ~ CKD_data$insurance + CKD_data$chol_screen + CKD_data$checkup)
+summary(fit2)
+qqnorm(fit2$residuals, main="Normal QQ plot of residuals")
+qqline(fit2$residuals, col = "steelblue", lwd = 2)
 ```
-There is evidence that annual checkups are more popular in Ohio.
-```{r}
-t.test(checkup_Ohio, checkup_Florida, alt = "greater", var.equal = FALSE)
-```
-However that evidence is not significant at 0.05 confidence level.
+Konačni model linearne regresije objašnjava 78.66% varijacije KBB. Rezultati testova o regresijskim koeficijentima kao i u prošlom primjeru javlja jako male p-vrijednosti što nam omogućuje da odbacimo hipotezu da je neki od koeficijenata zapravo jednak nuli. Normalni qq graf reziduala opravdava pretpostavku normalnosti pogreške.
 
-
-
-
-```{r}
-bpmed_Ohio = habits[habits["StateDesc"] == "Ohio" & habits["Short_Question_Text"] == "Taking BP Medication","Data_Value"]
-bpmed_Florida = habits[habits["StateDesc"] == "Florida" & habits["Short_Question_Text"] == "Taking BP Medication","Data_Value"]
-
-str_interp("Ohio blood pressure med mean: $[.2f]{mean(bpmed_Ohio)}, Florida blood pressure med mean: $[.2f]{mean(bpmed_Florida)}")
-```
-There is evidence that taking blood pressure medication is more popular in Ohio.
-```{r}
-t.test(bpmed_Ohio, bpmed_Florida, alt = "greater", var.equal = FALSE)
-```
-Taking blood pressure medication is significantly more popular in Ohio than Florida at 0.001 confidence level.
-
-
-
-```{r}
-insurance_Ohio = 100 - habits[habits["StateDesc"] == "Ohio" & habits["Short_Question_Text"] == "Health Insurance","Data_Value"]
-insurance_Florida = 100 - habits[habits["StateDesc"] == "Florida" & habits["Short_Question_Text"] == "Health Insurance","Data_Value"]
-
-str_interp("Ohio insurance mean: $[.2f]{mean(insurance_Ohio)}, Florida insurance mean: $[.2f]{mean(insurance_Florida)}")
-```
-There is evidence that health insurance is more popular in Ohio that in Florida.
-```{r}
-t.test(insurance_Ohio, insurance_Florida, alt = "greater", var.equal = FALSE)
-```
-Health insurance is significantly more popular in Ohio than in Florida at 0.005 confidence level. 
-
-
-```{r}
-COPD_data = habits[(habits["StateDesc"] == "Illinois" | habits[habits["StateDesc"] == "Iowa" | habits[habits["StateDesc"] == "South Dakota"),c("Data_Value", "PopulationCount", "Short_Question_Text")]
-COPD_data = COPD_data[COPD_data["Short_Question_Text"] == "COPD", ]
-```
-
+Iz iznosa koeficijenata regresije možemo zaključiti da veće stope zdravstvene osiguranosti te pregleda kolesterola imaju poželjan utjecaj na postotak kroničnih bubrežnih bolesti. Te od ova dva faktora, pregled kolesterola možemo izdvojiti kao značajnijeg u suzbijanju kroničnih bubrežnih bolesti. Iznenađujuć rezultat ove analize je činjenica da godišnji pregledi naizgled imaju negativan utjecaj na kronične bolesti bubrega, to jest postoji trend da u populacijama u kojima više ljudi ide na godišnje pregleda ima i više kroničnih bubrežnih bolesti. Ta činjenica bi se mogla objasniti trećom skrivenom varijablom, koja utječe na obje varijable. Na primjer moguće je da u gradovima sa starijim stanovništvom ljudi više oboljevaju od bolesti, ali iz istog razloga češće idu na preglede. Ovu hipotezu ipak ne možemo istražiti jer nemamo podatke o starosti stanovništva.

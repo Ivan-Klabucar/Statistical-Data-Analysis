@@ -1,0 +1,132 @@
+---
+title: "Deskriptivna"
+author: "SAProfiti"
+date: "15/12/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE, message=FALSE}
+library('tidyverse')
+library('knitr')
+```
+
+# Uvod
+
+Navike svakog čovjeka mogu imati pozitivan ili negativan utjecaj na njegovo zdravlje. U moderno doba uobičajeno je da čovjek iz raznih izvora saznaje razne informacije o utjecaju pojedinih akcija na njegovo zdravlje. U moru informacija ponekad je, međutim, teško razlučiti bitno od nebitnog, istinito od neistintog i odrediti koje navike imaju stvarni utjecaj na zdravlje i koliki taj utjecaj zapravo jest. 
+
+Cilj ovog projekta je istražiti preventivne mjere i zdravstvene tegobe koje imaju ljudi u raznim američkim gradovima, postoji li razlika u navikama ljudi u različitim gradovima i potencijalno pronaći vezu između pojedinih navika i njihovih utjecaja na zdravlje.
+
+# Učitavanje podataka
+
+## Učitavanje i upoznavanje s podatcima
+
+Prvi korak je učitavanje i osnovno upoznavanje s podatcima.
+
+```{r}
+health_data = read.csv("data_health_and_prevention.csv")
+dim(health_data)
+```
+
+Podatci se sastoje od 16000 redaka i 10 stupaca. Svaki redak izražava udio stanovnika nekog američkog grada koji se pridržava određene preventivne mjere ili ima određeno zdravstveno stanje.
+
+Tablice mogućih mjera i zdravstvenih stanja i njihov skraćen oblik dane su ovdje:
+
+```{r, echo=FALSE}
+preventions = health_data[health_data["Category"] == "Prevention", c("Short_Question_Text", "Measure")] %>% distinct()
+kable(preventions, caption = "Prevention")
+illnesses = health_data[health_data["Category"] == "Health Outcomes", c("Short_Question_Text", "Measure")] %>% distinct()
+kable(illnesses, caption = "Health Outcomes")
+```
+## Manipulacija podatcima
+
+Za lakšu obradu podataka pretvaramo sljedeće stupce u faktorske varijable:
+
+```{r}
+health_data$StateDesc = as.factor(health_data$StateDesc)
+health_data$CityName = as.factor(health_data$CityName)
+health_data$Category = as.factor(health_data$Category)
+health_data$Measure = as.factor(health_data$Measure)
+health_data$DataValueTypeID = as.factor(health_data$DataValueTypeID)
+health_data$Short_Question_Text = as.factor(health_data$Short_Question_Text)
+```
+
+Svi podatci u datasetu izraženi su u dvije varijante: kao sirova stopa (Crude Rate) i kao dobno prilagođena stopa (Age-Adjusted Rate). Za razliku od sirove stope, dobno prilagođena uzima u obzir razlike u dobnoj raspodijeli stanovništva u različitim gradovima. S obzirom da države i gradove koje ćemo uspoređivati imaju različitu dobnu raspodijelu stanovništva, odlučili smo koristiti dobno prilagođene podatke.
+
+```{r}
+health_data_adj = health_data[health_data$DataValueTypeID== "AgeAdjPrv",]
+```
+
+U pomoćne varijable dodajemo podatke o populaciji i broju gradova za svaku saveznu državu i statistike po pojedinim saveznim državama.
+
+```{r, message=FALSE}
+state_data <- health_data_adj %>% group_by(StateDesc) %>% summarise(
+  City.count = n_distinct(CityName),
+  Population.count = sum(unique(PopulationCount))
+)
+
+per_state_summary <- health_data_adj %>% 
+  group_by(StateDesc, Category, Measure, Short_Question_Text) %>% summarise(
+  Total.percentage = sum(Data_Value*PopulationCount)/sum(PopulationCount),
+  Population = sum(PopulationCount),
+  Population.affected = round(sum(Data_Value*PopulationCount)/100)
+)
+
+```
+
+Za daljnji rad u dataset dodajemo nove stupce za postotak u svom mjerenom stanovništvu i ukupan broj ljudi zahvaćenih određenom mjerom ili zdravstvenim stanjem.
+```{r, message=FALSE}
+health_data_adj$Percentage_in_Total = 
+  health_data_adj$Data_Value*health_data_adj$PopulationCount/sum(state_data$Population.count)
+
+health_data_adj$Affected_population = 
+  round( health_data_adj$Data_Value*health_data_adj$PopulationCount*0.01)
+```
+
+
+```{r, echo=FALSE, message=FALSE}
+#Definiranje redoslijeda za Mjere - bit ce potrebno kasnije
+
+health_data_adj$Short_Question_Text <- factor(health_data_adj$Short_Question_Text, levels = c("Cholesterol Screening","Health Insurance","Taking BP Medication","Annual Checkup","Arthritis","Cancer (except skin)","Chronic Kidney Disease","COPD","Coronary Heart Disease","Current Asthma","Diabetes","High Blood Pressure","High Cholesterol","Mental Health","Physical Health","Stroke"))
+```
+
+# Deskriptivna statistika
+
+## Ukupni podatci
+
+```{r, include=FALSE}
+library(ggplot2)
+myBlue <- rgb(0.1,0.1,0.7,0.5)
+myGreen <- rgb(0.3,0.8,0.1,0.6)
+```
+
+Prikaz raspodijele udjela građana koji primjenjuju pojedine preventivne mjere:
+
+```{r, echo=FALSE}
+boxplot(health_data_adj[health_data_adj$Short_Question_Text == "Cholesterol Screening",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "Health Insurance",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "Taking BP Medication",]$Data_Value,
+        health_data_adj[health_data_adj$Short_Question_Text == "Annual Checkup",]$Data_Value,
+        names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"),
+        col = myBlue
+        #ylim = c(0,100)
+        )
+
+```
+
+```{r, echo=FALSE}
+onlyHealthOutcomes = health_data_adj %>% filter(Category == "Health Outcomes")
+
+plot <- ggplot(onlyHealthOutcomes, aes(Short_Question_Text, Data_Value), color=myGreen) + geom_point()
+
+plot + theme_minimal() + 
+  theme(legend.title = element_text(size=10), 
+        legend.text = element_text(size=6),
+        axis.text.y = element_text(size = 8),
+        axis.text.x = element_text(size = 8, angle = 60, vjust = 0.5))
+
+boxplot(Data_Value ~ Short_Question_Text, onlyHealthOutcomes, col = myGreen)
+```

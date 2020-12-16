@@ -5,7 +5,7 @@ date: "15/12/2020"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE, tidy=TRUE}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -99,8 +99,12 @@ health_data_adj$Short_Question_Text <- factor(health_data_adj$Short_Question_Tex
 
 ```{r, include=FALSE}
 library(ggplot2)
-myBlue <- rgb(0.1,0.1,0.7,0.5)
-myGreen <- rgb(0.3,0.8,0.1,0.6)
+#myBlue <- rgb(0.1,0.1,0.7,0.5)
+myPurple <- rgb(0.62, 0.64, 0.7)
+#myGreen <- rgb(0.3,0.8,0.1,0.6)
+myBlue <- rgb(0.24, 0.48, 0.54)
+myPink <- rgb(0.86, 0.76, 0.81)
+
 ```
 
 Prikaz raspodjele udjela građana koji primjenjuju pojedine preventivne mjere i imaju pojedina zdravstvena stanja:
@@ -111,14 +115,14 @@ boxplot(health_data_adj[health_data_adj$Short_Question_Text == "Cholesterol Scre
         health_data_adj[health_data_adj$Short_Question_Text == "Taking BP Medication",]$Data_Value,
         health_data_adj[health_data_adj$Short_Question_Text == "Annual Checkup",]$Data_Value,
         names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"),
-        col = myBlue
+        col = myPurple
         #ylim = c(0,100)
         )
 
 onlyHealthOutcomes = health_data_adj %>% filter(Category == "Health Outcomes")
 # ne znam zasto prikazuje i podatke koji nisu prosli kroz filter :(
 par(mar=c(12,5,1,1))
-boxplot(Data_Value ~ Short_Question_Text, onlyHealthOutcomes, col = myGreen, las=2, xlab="")
+boxplot(Data_Value ~ Short_Question_Text, onlyHealthOutcomes, col = myBlue, las=2, xlab="")
 mtext("Short_Question_Text", side=1, line=10.5)
 
 ```
@@ -129,9 +133,9 @@ Pregledom histograma za svaku mjeru, primjećujemo da ih većina prati približn
 old.par <- par(mfrow=c(2,3))
 for (measure in unique(health_data_adj$Short_Question_Text)) {
   if (unique(health_data_adj[health_data_adj$Short_Question_Text == measure,]$Category) == c("Prevention")){
-    color = myBlue
+    color = myPurple
   } else {
-    color = myGreen
+    color = myBlue
   }
   hist(health_data_adj[health_data_adj$Short_Question_Text == measure,]$Data_Value, main = measure, xlab = "%", col = color)
 }
@@ -168,13 +172,13 @@ boxplot(per_state_summary[per_state_summary$Short_Question_Text == "Cholesterol 
         per_state_summary[per_state_summary$Short_Question_Text == "Taking BP Medication",]$Total.percentage,
         per_state_summary[per_state_summary$Short_Question_Text == "Annual Checkup",]$Total.percentage,
         names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"),
-        col = myBlue
+        col = myPurple
         )
 
 #isti problem kao i gore
 onlyHealthOutcomes = per_state_summary %>% filter(Category == "Health Outcomes")
 par(mar=c(12,5,1,1))
-boxplot(Total.percentage ~ Short_Question_Text, data = onlyHealthOutcomes, col = myGreen, las=2, xlab="")
+boxplot(Total.percentage ~ Short_Question_Text, data = onlyHealthOutcomes, col = myBlue, las=2, xlab="")
 mtext("Short_Question_Text", side=1, line=10.5)
 ```
 
@@ -191,13 +195,16 @@ Florida <- per_state_summary[(per_state_summary$StateDesc == "Florida" & per_sta
 
 counts <- matrix(c(Ohio$Total.percentage, Florida$Total.percentage), nrow = 2, byrow = TRUE)
 
-barplot(counts, names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"), col = c(myBlue, myGreen), beside = TRUE)
+barplot(counts, names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"), col = c(myPurple, myBlue), beside = TRUE)
+legend("top",
+      legend = c("Ohio", "Florida"),
+       fill = c(myBlue, myPurple))
 
 ```
 
 ## Statistike - Illinois, Iowa i South Dakota
 
-Prikaz udjela stanovništva koje boluje od kroničnih plućnih bolesti (COPD) u državama Illinois, Iowa i South Dakota:
+Prikaz udjela stanovništva koje boluje od kroničnih plućnih bolesti (COPD)u državama Illinois, Iowa i South Dakota:
 
 ```{r, echo=FALSE}
 #Deskriptivna statistika za odabrane savezne drzave
@@ -207,5 +214,5 @@ Iowa_COPD <- per_state_summary[(per_state_summary$StateDesc == "Iowa" & per_stat
 
 S_Dakota_COPD <- per_state_summary[(per_state_summary$StateDesc == "South Dakota" & per_state_summary$Short_Question_Text == "COPD"),]
 
-barplot(c(Illinois_COPD$Total.percentage, Iowa_COPD$Total.percentage, S_Dakota_COPD$Total.percentage), col = c("indianred3", myBlue, myGreen), names = c("Illinois", "Iowa", "South Dakota"))
+barplot(c(Illinois_COPD$Total.percentage, Iowa_COPD$Total.percentage, S_Dakota_COPD$Total.percentage), col = c(myPink, myPurple, myBlue), names = c("Illinois", "Iowa", "South Dakota"))
 ```

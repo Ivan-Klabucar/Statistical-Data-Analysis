@@ -14,6 +14,13 @@ library('tidyverse')
 library('knitr')
 ```
 
+```{r, include=FALSE}
+myPurple <- rgb(0.62, 0.64, 0.7)
+myBlue <- rgb(0.24, 0.48, 0.54)
+myPink <- rgb(0.86, 0.76, 0.81)
+
+```
+
 # Uvod
 
 Navike svakog čovjeka mogu imati pozitivan ili negativan utjecaj na njegovo zdravlje. U moderno doba uobičajeno je da čovjek iz raznih izvora saznaje razne informacije o utjecaju pojedinih akcija na zdravlje. U moru informacija ponekad je, međutim, teško razlučiti bitno od nebitnog, istinito od neistintog i odrediti koje navike imaju stvarni utjecaj na zdravlje i koliki taj utjecaj zapravo jest. 
@@ -29,6 +36,7 @@ Prvi korak je učitavanje i osnovno upoznavanje s podatcima.
 ```{r}
 health_data = read.csv("data_health_and_prevention.csv")
 dim(health_data)
+view(health_data)
 ```
 
 Podatci se sastoje od 16000 redaka i 10 stupaca. Svaki redak izražava udio stanovnika nekog američkog grada koji se pridržava određene preventivne mjere ili ima određeno zdravstveno stanje.
@@ -54,7 +62,25 @@ health_data$DataValueTypeID = as.factor(health_data$DataValueTypeID)
 health_data$Short_Question_Text = as.factor(health_data$Short_Question_Text)
 ```
 
-Svi podatci u datasetu izraženi su u dvije varijante: kao sirova stopa (Crude Rate) i kao dobno prilagođena stopa (Age-Adjusted Rate). Za razliku od sirove stope, dobno prilagođena uzima u obzir razlike u dobnoj raspodjeli stanovništva u različitim gradovima. S obzirom da države i gradove koje ćemo uspoređivati imaju različitu dobnu raspodjelu stanovništva, odlučili smo koristiti dobno prilagođene podatke.
+Svi podatci u datasetu izraženi su u dvije varijante: kao sirova stopa (Crude Rate) i kao dobno prilagođena stopa (Age-Adjusted Rate).
+
+```{r, echo=FALSE}
+health_data_crd = health_data[health_data$DataValueTypeID== "CrdPrv",]
+health_data_adj = health_data[health_data$DataValueTypeID== "AgeAdjPrv",]
+
+old.par <- par(mfrow=c(2,3))
+for (measure in unique(health_data_adj$Short_Question_Text)) {
+  boxplot(health_data_adj[health_data_adj$Short_Question_Text == measure,]$Data_Value,
+        health_data_adj[health_data_crd$Short_Question_Text == measure,]$Data_Value,
+        main=measure,
+        names=c("AgeAdj", "Crd"),
+        col=c(myPurple, myBlue)
+  )
+}
+par(old.par)
+```
+
+U prethodnim grafovima možemo primjetiti da sirovi podaci imaju mnogo više outliera od dobno prilagođenih. Za razliku od sirove stope, dobno prilagođena uzima u obzir razlike u dobnoj raspodjeli stanovništva u različitim gradovima. S obzirom da države i gradove koje ćemo uspoređivati imaju različitu dobnu raspodjelu stanovništva, odlučili smo koristiti dobno prilagođene podatke.
 
 ```{r}
 health_data_adj = health_data[health_data$DataValueTypeID== "AgeAdjPrv",]
@@ -97,16 +123,6 @@ health_data_adj$Short_Question_Text <- factor(health_data_adj$Short_Question_Tex
 
 ## Ukupni podatci
 
-```{r, include=FALSE}
-library(ggplot2)
-#myBlue <- rgb(0.1,0.1,0.7,0.5)
-myPurple <- rgb(0.62, 0.64, 0.7)
-#myGreen <- rgb(0.3,0.8,0.1,0.6)
-myBlue <- rgb(0.24, 0.48, 0.54)
-myPink <- rgb(0.86, 0.76, 0.81)
-
-```
-
 Prikaz raspodjele udjela građana koji primjenjuju pojedine preventivne mjere i imaju pojedina zdravstvena stanja:
 
 ```{r, echo=FALSE}
@@ -120,6 +136,7 @@ boxplot(health_data_adj[health_data_adj$Short_Question_Text == "Cholesterol Scre
         )
 
 onlyHealthOutcomes = health_data_adj %>% filter(Category == "Health Outcomes")
+onlyHealthOutcomes
 # ne znam zasto prikazuje i podatke koji nisu prosli kroz filter :(
 par(mar=c(12,5,1,1))
 boxplot(Data_Value ~ Short_Question_Text, onlyHealthOutcomes, col = myBlue, las=2, xlab="")
@@ -130,6 +147,7 @@ mtext("Short_Question_Text", side=1, line=10.5)
 Pregledom histograma za svaku mjeru, primjećujemo da ih većina prati približno normalnu razdiobu, uz iznimku BP Medication koji izgleda bimodalno:
 
 ```{r, echo=FALSE}
+library("nortest")
 old.par <- par(mfrow=c(2,3))
 for (measure in unique(health_data_adj$Short_Question_Text)) {
   if (unique(health_data_adj[health_data_adj$Short_Question_Text == measure,]$Category) == c("Prevention")){
@@ -139,6 +157,7 @@ for (measure in unique(health_data_adj$Short_Question_Text)) {
   }
   hist(health_data_adj[health_data_adj$Short_Question_Text == measure,]$Data_Value, main = measure, xlab = "%", col = color)
 }
+
 par(old.par)
 ```
 
@@ -216,3 +235,4 @@ S_Dakota_COPD <- per_state_summary[(per_state_summary$StateDesc == "South Dakota
 
 barplot(c(Illinois_COPD$Total.percentage, Iowa_COPD$Total.percentage, S_Dakota_COPD$Total.percentage), col = c(myPink, myPurple, myBlue), names = c("Illinois", "Iowa", "South Dakota"))
 ```
+

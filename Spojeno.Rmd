@@ -107,10 +107,10 @@ health_data_adj$Short_Question_Text <- factor(health_data_adj$Short_Question_Tex
 
 ```{r, include=FALSE}
 library(ggplot2)
-#myBlue <- rgb(0.1,0.1,0.7,0.5)
-myPurple <- rgb(0.62, 0.64, 0.7)
-#myGreen <- rgb(0.3,0.8,0.1,0.6)
-myBlue <- rgb(0.24, 0.48, 0.54)
+myRed <- rgb(0.6, 0.3, 0.3)
+myPurple <- rgb(0.52, 0.2, 0.52)
+myGreen <- rgb(0.3, 0.6, 0.3)
+myBlue <- rgb(0.24, 0.48, 0.84)
 myPink <- rgb(0.86, 0.76, 0.81)
 
 ```
@@ -207,12 +207,42 @@ Florida <- per_state_summary[(per_state_summary$StateDesc == "Florida" & per_sta
 
 counts <- matrix(c(Ohio$Total.percentage, Florida$Total.percentage), nrow = 2, byrow = TRUE)
 
-barplot(counts, names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"), col = c(myPurple, myBlue), beside = TRUE)
+barplot(counts, names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"), col = c(myRed, myGreen), beside = TRUE)
 legend("top",
       legend = c("Ohio", "Florida"),
-       fill = c(myBlue, myPurple))
+       fill = c(myRed, myGreen))
 
 ```
+
+Hi-kvadrat testovi proporcija za Ohio i Floridu:
+
+Prvi test uspoređuje udio cholesterol screening-a u Ohiu i Floridi.
+Hipoteze:
+H0 - udjeli su jednaki
+H1 - udio u Floridi je veći nego udio u Ohiu
+Dobivamo ekstremno malu p-vrijednost pa možemo odbaciti H0 u korist H1
+
+Drugi test uspoređuje udio heart insurance-a u Ohiu i Floridi.
+Hipoteze:
+H0 - udjeli su jednaki
+H1 - udio u Floridi je veći nego udio u Ohiu
+Dobivamo ekstremno malu p-vrijednost pa možemo odbaciti H0 u korist H1
+
+Treći test uspoređuje udio Uzimanja lijekova za visoki krvni tlak u Ohiu i Floridi.
+Hipoteze:
+H0 - udjeli su jednaki
+H1 - udio u Ohiu je veći nego udio u Floridi
+Dobivamo ekstremno malu p-vrijednost pa možemo odbaciti H0 u korist H1
+
+Četvrti test uspoređuje udio godišnjih pregleda u Ohiu i Floridi.
+Hipoteze:
+H0 - udjeli su jednaki
+H1 - udio u Ohiu je veći nego udio u Floridi
+Dobivamo ekstremno malu p-vrijednost pa možemo odbaciti H0 u korist H1
+
+
+Zbog velikih uzoraka u hi-kvadrat testu proporcija uvijek ćemo dobiti male p-vrijednosti
+pa i jako male razlike u proporcijama ispadaju statistički značajne.
 
 ```{r}
 #Hi-kvadrat testovi proporcije za Ohio i Floridu
@@ -238,7 +268,7 @@ res4
 
 ## Statistike - Illinois, Iowa i South Dakota
 
-Prikaz udjela stanovništva koje boluje od kroničnih plućnih bolesti (COPD)u državama Illinois, Iowa i South Dakota:
+Prikaz udjela stanovništva koje boluje od kroničnih plućnih bolesti (COPD) u državama Illinois, Iowa i South Dakota:
 
 ```{r, echo=FALSE}
 #Deskriptivna statistika za odabrane savezne drzave
@@ -250,6 +280,15 @@ S_Dakota_COPD <- per_state_summary[(per_state_summary$StateDesc == "South Dakota
 
 barplot(c(Illinois_COPD$Total.percentage, Iowa_COPD$Total.percentage, S_Dakota_COPD$Total.percentage), col = c(myPink, myPurple, myBlue), names = c("Illinois", "Iowa", "South Dakota"))
 ```
+
+Hi-kvadrat test za proporcije također smo koristili da pronađemo razlike za COPD u državama Illinois, Iowa i South Dakota.
+Hipoteze:
+H0 - udjeli su jednaki
+H1 - udjeli su različiti
+Dobili smo malu p-vrijednost pa sukladno tome odbacujemo H0 u korist H1.
+
+Sukladno prijašnjim hi-kvadrat testovima, zbog velikih uzoraka čak i male
+razlike u proporcijama imaju veliku značajnost.
 
 ```{r}
 #Hi-kvadrat test proporcije za COPD u odabranim drzavama

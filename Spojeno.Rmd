@@ -324,14 +324,14 @@ per_city_data <- health_data_adj %>% group_by(CityName, PopulationCount, StateDe
   ckd = Data_Value[Short_Question_Text == "Chronic Kidney Disease"]
 )
 
-per_city_data <- per_city_data[per_city_data['StateDesc'] != "California" & per_city_data['StateDesc'] != "Colorado" & per_city_data['StateDesc'] != "Washington" & per_city_data['StateDesc'] != "Oregon" & per_city_data['StateDesc'] != "Nevada",]
+# per_city_data <- per_city_data[per_city_data['StateDesc'] != "California" & per_city_data['StateDesc'] != "Colorado" & per_city_data['StateDesc'] != "Washington" & per_city_data['StateDesc'] != "Oregon" & per_city_data['StateDesc'] != "Nevada",]
 ```
 
 \newpage
 
 #Utjecaj metoda prevencije na bolesti
 
-Ovakvim pristupom dobit ćemo grube procjene 12 linearnih modela koji će nam pomoći da se odlučimo na koje bolesti da se fokusiramo.
+Ovakvim pristupom dobit ćemo grube procjene 12 linearnih modela koji će nam pomoći da se odlučimo koje bolesti da pobliže proučimo.
 
 ```{r}
 formula <- cbind(arthritis, cancer_noskin, copd, coronary_heart_disease, asthma, diabetes, high_bp, high_col, mental_health, physical_health, stroke, ckd) ~ checkup + insurance + bp_med + chol_screen
@@ -359,25 +359,50 @@ Plavi prvaci na svakom grafu predstavljaju linearni model s obzirom na samo jedn
 
 ```{r}
 summary(fit)['Response ckd']
-# par(mfrow=c(2,1), mar=c(3,3,1,1), mgp=c(2, 1, 0))
-# qqnorm(fit$residuals[, 'ckd'])
-# qqline(fit$residuals[, 'ckd'], col = "steelblue", lwd = 2)
-# plot(fit$fitted.values[, 'ckd'], rstandard(fit)[, 'ckd'], ylab="Standardizirani reziduali", xlab="Procjena y")
-# abline(0, 0, col="blue")
-# par(mfrow=c(2,2))
-# plot(per_city_data$checkup, rstandard(fit)[, 'ckd'], ylab="Standardizirani reziduali", xlab="Godišnji pregled (%)")
-# abline(0, 0, col="blue")
-# plot(per_city_data$insurance, rstandard(fit)[, 'ckd'], ylab="Standardizirani reziduali", xlab="Zdravstveno osigurani (%)")
-# abline(0, 0, col="blue")
-# plot(per_city_data$bp_med, rstandard(fit)[, 'ckd'], ylab="Standardizirani reziduali", xlab="Ljekovi za krvni tlak (%)")
-# abline(0, 0, col="blue")
-# plot(per_city_data$chol_screen, rstandard(fit)[, 'ckd'], ylab="Standardizirani reziduali", xlab="Pregled kolesterola (%)")
-# abline(0, 0, col="blue")
+par(mfrow=c(2,1), mar=c(3.3,3.1,1,0), mgp=c(1.5, 0.5, 0))
+qqnorm(rstandard(fit)[, 'ckd'], main="Normalni QQ Graf", ylab="Standardizirani reziduali", sub="Graf 1")
+qqline(rstandard(fit)[, 'ckd'], col = "steelblue", lwd = 2)
+plot(fit$fitted.values[, 'ckd'], rstandard(fit)[, 'ckd'], ylab="Standardizirani reziduali", xlab="Procjena y", sub="Graf 2")
+abline(0, 0, col="blue")
+par(mfrow=c(2,2))
+plot(per_city_data$checkup, rstandard(fit)[, 'ckd'], ylab="Standardizirani reziduali", xlab="Godišnji pregled (%)", sub="Graf 3")
+abline(0, 0, col="blue")
+plot(per_city_data$insurance, rstandard(fit)[, 'ckd'], ylab="Standardizirani reziduali", xlab="Zdravstveno osigurani (%)", sub="Graf 4")
+abline(0, 0, col="blue")
+plot(per_city_data$bp_med, rstandard(fit)[, 'ckd'], ylab="Standardizirani reziduali", xlab="Ljekovi za krvni tlak (%)", sub="Graf 5")
+abline(0, 0, col="blue")
+plot(per_city_data$chol_screen, rstandard(fit)[, 'ckd'], ylab="Standardizirani reziduali", xlab="Pregled kolesterola (%)", sub="Graf 6")
+abline(0, 0, col="blue")
 ```
-U zadnjem stupcu rezultata regresije "Pr(>|t|)", za svaki parametar možemo vidjeti p-vrijednost testa o regresijskim koeficijentima. Iz tog stupca možemo očitati da su faktori zdravstvenog osiguranja, pregleda kolesterola, te godišnjih pregleda značajni čak i pri jako malim vrijednostima alfa. Isto ne možemo reći i za utjecaj uzimanja ljekova za krvni tlak čija je p-vrijednost iznimno velika, tako da ćemo regresiju provesti još jednom bez dotičnog regresora. 
+U zadnjem stupcu rezultata regresije "Pr(>|t|)", za svaki parametar možemo vidjeti p-vrijednost testa o regresijskim koeficijentima. Iz tog stupca možemo očitati da su faktori zdravstvenog osiguranja, pregleda kolesterola, te godišnjih pregleda značajni čak i pri jako malim vrijednostima alfa. Isto ne možemo reći i za utjecaj uzimanja ljekova za krvni tlak čija je p-vrijednost iznimno velika. Također iako graf 2 opravdava pretpostavku homoskedastičnosti reziduala te graf 1 opravdava pretpostavku normalnosti pogreške, ne možemo reći da su reziduali neovisni o svim regresorima. Zavisnost reziduala o regresorima se najbolje vidi na grafu 5, ali se nazire i na grafu 3. Reziduali koji pripadaju regresoru 'Ljekovi za krvni tlak' u rasponu od 45% do 56% grupiraju se u jednu istaknutu nakupinu, a oni koji pripadaju istom regresoru u rasponu od 56% naviše se grupiraju u drugu. Ovakva situacija sugerira da postoji još nekakav bitan faktor kojeg nismo uzeli u obzir unutar ovog modela. Iz grafa 5 vidimo da u slučajevima kada je dotični regresor unutar raspona [45, 56] naš model daje premalu procjenu, a kada je u rasponu [56, 100] preveliku procjenu.
+
+Imajući na umu da smo već ustanovili da preventivna mjera 'Uzimanja ljekova za krvni tlak' ima bimodalnu distribuciju koja se identično poklapa sa grupama reziduala na grafu 5, možemo probati naše podatke razdvojiti na dvije grupe te nad njima provesti zasebne linearne regresije. 
+
+Ako istaknemo savezne države sa 75% ili više gradova koji pripadaju rasponu [0, 56] za regresor 'Uzimanja ljekova za krvni tlak' dobijemo sljedeće:
+```{r}
+bp_med_lower <- per_city_data[per_city_data['bp_med'] < 56, ]
+bp_med_lower <- bp_med_lower %>% group_by(StateDesc) %>% summarise(
+  cities_low_bp_med = n_distinct(CityName)
+)
+bp_med_lower <- merge(bp_med_lower, state_data, by="StateDesc")
+bp_med_lower$Fraction_of_cities = bp_med_lower$cities_low_bp_med / bp_med_lower$City.count
+bp_med_lower <- bp_med_lower[bp_med_lower$Fraction_of_cities >= 0.75, c("StateDesc", "Fraction_of_cities")]
+bp_med_lower
+```
+![Savezne države i bimodalnost regresora 'Uzimanje ljekova za krvni tlak'](map_bimodal.png)
+Razumno je, dakle, zaključiti da zapadne savezne države djele neku zajedničku karakteristiku koja ih razlikuje od ostatka SAD-a.
+Probat ćemo problem zavisnosti reziduala riješiti izvođenjem postupka linearne regresije zasebno za ove dvije grupe saveznih država.
 
 ```{r}
-fit2 <- lm(ckd ~ insurance + chol_screen + checkup + bp_med, data=per_city_data)
+city_data_west <- per_city_data[per_city_data$StateDesc %in% bp_med_lower[['StateDesc']], ]
+city_data_rest <- per_city_data[!(per_city_data$StateDesc %in% bp_med_lower[['StateDesc']]), ]
+```
+
+### Zapadne savezne države
+
+```{r}
+
+fit2 <- lm(ckd ~ insurance + chol_screen + checkup + bp_med, data=city_data_west)
 summary(fit2)
 
 par(mfrow=c(2,1), mar=c(3,3,1,1), mgp=c(2, 1, 0))
@@ -387,27 +412,44 @@ plot(fit2$fitted.values, rstandard(fit2), ylab="Standardizirani reziduali", xlab
 abline(0, 0, col="blue")
 
 par(mfrow=c(2,2))
-plot(per_city_data$checkup, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Godišnji pregled (%)")
+plot(city_data_west$checkup, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Godišnji pregled (%)")
 abline(0, 0, col="blue")
-plot(per_city_data$insurance, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Zdravstveno osigurani (%)")
+plot(city_data_west$insurance, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Zdravstveno osigurani (%)")
 abline(0, 0, col="blue")
-plot(per_city_data$chol_screen, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Pregled kolesterola (%)")
+plot(city_data_west$chol_screen, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Pregled kolesterola (%)")
 abline(0, 0, col="blue")
-plot(per_city_data$bp_med, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Ljekovi za krvni tlak (%)")
+plot(city_data_west$bp_med, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Ljekovi za krvni tlak (%)")
 abline(0, 0, col="blue")
 ```
-Konačni model linearne regresije objašnjava (Adjusted R-squared) 0.7853% varijacije KBB, što je praktički jednako dobro kao i prošli model s jednim regresorom više. Rezultati testova o regresijskim koeficijentima kao i u prošlom primjeru javljaju jako male p-vrijednosti što nam omogućuje da odbacimo hipotezu da je neki od koeficijenata zapravo jednak nuli. 
+Opisat rezultate regresije za zapad!!!
+<!-- Konačni model linearne regresije objašnjava (Adjusted R-squared) 0.7853% varijacije KBB, što je praktički jednako dobro kao i prošli model s jednim regresorom više. Rezultati testova o regresijskim koeficijentima kao i u prošlom primjeru javljaju jako male p-vrijednosti što nam omogućuje da odbacimo hipotezu da je neki od koeficijenata zapravo jednak nuli.  -->
 
-Normalni qq graf standardiziranih reziduala opravdava pretpostavku normalnosti pogreške, dok graf std. reziduala i procjenjeog y opravdava pretpostavku homoskedastičnosti. Također iz ostala tri grafa na kojima su prikazani odnos standardiziranih reziduala i svakog od regresora, možemo sa relativnom sigurnošću potvrditi nezavisnost reziduala i svakog od regresora.
+<!-- Normalni qq graf standardiziranih reziduala opravdava pretpostavku normalnosti pogreške, dok graf std. reziduala i procjenjeog y opravdava pretpostavku homoskedastičnosti. Također iz ostala tri grafa na kojima su prikazani odnos standardiziranih reziduala i svakog od regresora, možemo sa relativnom sigurnošću potvrditi nezavisnost reziduala i svakog od regresora. -->
 
-Iz iznosa koeficijenata regresije možemo zaključiti da veće stope zdravstvene osiguranosti te pregleda kolesterola imaju poželjan utjecaj na postotak kroničnih bubrežnih bolesti. Te od ova dva faktora, pregled kolesterola možemo izdvojiti kao značajnijeg u suzbijanju kroničnih bubrežnih bolesti. Iznenađujuć rezultat ove analize je činjenica da godišnji pregledi naizgled imaju negativan utjecaj na kronične bolesti bubrega, to jest postoji trend da u populacijama u kojima više ljudi ide na godišnje pregleda ima i više kroničnih bubrežnih bolesti. Ta činjenica bi se mogla objasniti trećom skrivenom varijablom, koja utječe na obje varijable. Na primjer moguće je da u gradovima sa starijim stanovništvom ljudi više oboljevaju od bolesti, ali iz istog razloga češće idu na preglede. Moguće je i da u gradovima u kojima se ide češće na preglede se kronične bubrežne bolesti češće otkrivaju. Ove hipoteze ipak ne možemo istražiti jer nemamo podatke o starosti stanovništva.
+<!-- Iz iznosa koeficijenata regresije možemo zaključiti da veće stope zdravstvene osiguranosti te pregleda kolesterola imaju poželjan utjecaj na postotak kroničnih bubrežnih bolesti. Te od ova dva faktora, pregled kolesterola možemo izdvojiti kao značajnijeg u suzbijanju kroničnih bubrežnih bolesti. Iznenađujuć rezultat ove analize je činjenica da godišnji pregledi naizgled imaju negativan utjecaj na kronične bolesti bubrega, to jest postoji trend da u populacijama u kojima više ljudi ide na godišnje pregleda ima i više kroničnih bubrežnih bolesti. Ta činjenica bi se mogla objasniti trećom skrivenom varijablom, koja utječe na obje varijable. Na primjer moguće je da u gradovima sa starijim stanovništvom ljudi više oboljevaju od bolesti, ali iz istog razloga češće idu na preglede. Moguće je i da u gradovima u kojima se ide češće na preglede se kronične bubrežne bolesti češće otkrivaju. Ove hipoteze ipak ne možemo istražiti jer nemamo podatke o starosti stanovništva. -->
 
+### Ostale savezne države
 
 ```{r}
-dta <- per_city_data[per_city_data['bp_med'] < 55, ]
-dta <- dta %>% group_by(StateDesc) %>% summarise(
-  count = n_distinct(CityName)
-)
-dta
-state_data
+
+fit3 <- lm(ckd ~ insurance + chol_screen + checkup + bp_med, data=city_data_rest)
+summary(fit3)
+
+par(mfrow=c(2,1), mar=c(3,3,1,1), mgp=c(2, 1, 0))
+qqnorm(rstandard(fit3), main="Normal QQ plot of standardized residuals")
+qqline(rstandard(fit3), col = "steelblue", lwd = 2)
+plot(fit3$fitted.values, rstandard(fit3), ylab="Standardizirani reziduali", xlab="Procjena y")
+abline(0, 0, col="blue")
+
+par(mfrow=c(2,2))
+plot(city_data_rest$checkup, rstandard(fit3), ylab="Standardizirani reziduali", xlab="Godišnji pregled (%)")
+abline(0, 0, col="blue")
+plot(city_data_rest$insurance, rstandard(fit3), ylab="Standardizirani reziduali", xlab="Zdravstveno osigurani (%)")
+abline(0, 0, col="blue")
+plot(city_data_rest$chol_screen, rstandard(fit3), ylab="Standardizirani reziduali", xlab="Pregled kolesterola (%)")
+abline(0, 0, col="blue")
+plot(city_data_rest$bp_med, rstandard(fit3), ylab="Standardizirani reziduali", xlab="Ljekovi za krvni tlak (%)")
+abline(0, 0, col="blue")
 ```
+Opisat rezultate regresije za ostatak!!!
+

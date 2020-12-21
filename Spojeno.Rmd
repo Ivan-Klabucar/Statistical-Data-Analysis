@@ -405,28 +405,25 @@ city_data_rest <- per_city_data[!(per_city_data$StateDesc %in% bp_med_lower[['St
 fit2 <- lm(ckd ~ insurance + chol_screen + checkup + bp_med, data=city_data_west)
 summary(fit2)
 
-par(mfrow=c(2,1), mar=c(3,3,1,1), mgp=c(2, 1, 0))
-qqnorm(rstandard(fit2), main="Normal QQ plot of standardized residuals")
+par(mfrow=c(2,1), mar=c(3.3,3.1,1,0), mgp=c(1.5, 0.5, 0))
+qqnorm(rstandard(fit2), main="Normal QQ plot of standardized residuals", sub="Graf 7")
 qqline(rstandard(fit2), col = "steelblue", lwd = 2)
-plot(fit2$fitted.values, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Procjena y")
+plot(fit2$fitted.values, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Procjena y", sub="Graf 8")
 abline(0, 0, col="blue")
 
 par(mfrow=c(2,2))
-plot(city_data_west$checkup, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Godišnji pregled (%)")
+plot(city_data_west$checkup, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Godišnji pregled (%)", sub="Graf 9")
 abline(0, 0, col="blue")
-plot(city_data_west$insurance, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Zdravstveno osigurani (%)")
+plot(city_data_west$insurance, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Zdravstveno osigurani (%)", sub="Graf 10")
 abline(0, 0, col="blue")
-plot(city_data_west$chol_screen, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Pregled kolesterola (%)")
+plot(city_data_west$chol_screen, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Pregled kolesterola (%)", sub="Graf 11")
 abline(0, 0, col="blue")
-plot(city_data_west$bp_med, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Ljekovi za krvni tlak (%)")
+plot(city_data_west$bp_med, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Ljekovi za krvni tlak (%)", sub="Graf 12")
 abline(0, 0, col="blue")
 ```
-Opisat rezultate regresije za zapad!!!
-<!-- Konačni model linearne regresije objašnjava (Adjusted R-squared) 0.7853% varijacije KBB, što je praktički jednako dobro kao i prošli model s jednim regresorom više. Rezultati testova o regresijskim koeficijentima kao i u prošlom primjeru javljaju jako male p-vrijednosti što nam omogućuje da odbacimo hipotezu da je neki od koeficijenata zapravo jednak nuli.  -->
 
-<!-- Normalni qq graf standardiziranih reziduala opravdava pretpostavku normalnosti pogreške, dok graf std. reziduala i procjenjeog y opravdava pretpostavku homoskedastičnosti. Također iz ostala tri grafa na kojima su prikazani odnos standardiziranih reziduala i svakog od regresora, možemo sa relativnom sigurnošću potvrditi nezavisnost reziduala i svakog od regresora. -->
+Model u kojem se zapadne države SAD-a razmatraju zasebno dao je osjetno bolje rezultate. Problem zasivnosti reziduala je riješen (grafovi 9-12), a njihova homoskedastičnosti nije narušena (graf 8). Normalnost reziduala malo je lošija nego u prošlom modelu (graf 7), ima teži desni rep, ali ipak nije toliko različita od normalne da bi ozbiljno narušila vjerodostojnost modela. P-vrijednosti testova o regresijskim koeficijentima su i dalje iznimno mali, te se p-vrijednost koeficijenta za regresor 'Ljekovi za krvni tlak' snizila na prihvatljivu razinu. Nadalje, vrijednosti koeficijenta determinacije i prilagođenog koeficijenta determinacije su nešto više od 0.87 što znači da naš model objašnjava 87% varijacije podataka. Za složen fenomen poput pojave kroničnih bubrežnih bolesti u populaciji, moglo bi se reći da je taj postotak poprilično visok. 
 
-<!-- Iz iznosa koeficijenata regresije možemo zaključiti da veće stope zdravstvene osiguranosti te pregleda kolesterola imaju poželjan utjecaj na postotak kroničnih bubrežnih bolesti. Te od ova dva faktora, pregled kolesterola možemo izdvojiti kao značajnijeg u suzbijanju kroničnih bubrežnih bolesti. Iznenađujuć rezultat ove analize je činjenica da godišnji pregledi naizgled imaju negativan utjecaj na kronične bolesti bubrega, to jest postoji trend da u populacijama u kojima više ljudi ide na godišnje pregleda ima i više kroničnih bubrežnih bolesti. Ta činjenica bi se mogla objasniti trećom skrivenom varijablom, koja utječe na obje varijable. Na primjer moguće je da u gradovima sa starijim stanovništvom ljudi više oboljevaju od bolesti, ali iz istog razloga češće idu na preglede. Moguće je i da u gradovima u kojima se ide češće na preglede se kronične bubrežne bolesti češće otkrivaju. Ove hipoteze ipak ne možemo istražiti jer nemamo podatke o starosti stanovništva. -->
 
 ### Ostale savezne države
 
@@ -435,21 +432,25 @@ Opisat rezultate regresije za zapad!!!
 fit3 <- lm(ckd ~ insurance + chol_screen + checkup + bp_med, data=city_data_rest)
 summary(fit3)
 
-par(mfrow=c(2,1), mar=c(3,3,1,1), mgp=c(2, 1, 0))
-qqnorm(rstandard(fit3), main="Normal QQ plot of standardized residuals")
+par(mfrow=c(2,1), mar=c(3.3,3.1,1,0), mgp=c(1.5, 0.5, 0))
+qqnorm(rstandard(fit3), main="Normal QQ plot of standardized residuals", sub="Graf 13")
 qqline(rstandard(fit3), col = "steelblue", lwd = 2)
-plot(fit3$fitted.values, rstandard(fit3), ylab="Standardizirani reziduali", xlab="Procjena y")
+plot(fit3$fitted.values, rstandard(fit3), ylab="Standardizirani reziduali", xlab="Procjena y", sub="Graf 14")
 abline(0, 0, col="blue")
 
 par(mfrow=c(2,2))
-plot(city_data_rest$checkup, rstandard(fit3), ylab="Standardizirani reziduali", xlab="Godišnji pregled (%)")
+plot(city_data_rest$checkup, rstandard(fit3), ylab="Standardizirani reziduali", xlab="Godišnji pregled (%)", sub="Graf 15")
 abline(0, 0, col="blue")
-plot(city_data_rest$insurance, rstandard(fit3), ylab="Standardizirani reziduali", xlab="Zdravstveno osigurani (%)")
+plot(city_data_rest$insurance, rstandard(fit3), ylab="Standardizirani reziduali", xlab="Zdravstveno osigurani (%)", sub="Graf 16")
 abline(0, 0, col="blue")
-plot(city_data_rest$chol_screen, rstandard(fit3), ylab="Standardizirani reziduali", xlab="Pregled kolesterola (%)")
+plot(city_data_rest$chol_screen, rstandard(fit3), ylab="Standardizirani reziduali", xlab="Pregled kolesterola (%)", sub="Graf 17")
 abline(0, 0, col="blue")
-plot(city_data_rest$bp_med, rstandard(fit3), ylab="Standardizirani reziduali", xlab="Ljekovi za krvni tlak (%)")
+plot(city_data_rest$bp_med, rstandard(fit3), ylab="Standardizirani reziduali", xlab="Ljekovi za krvni tlak (%)", sub="Graf 18")
 abline(0, 0, col="blue")
 ```
-Opisat rezultate regresije za ostatak!!!
+Model u kojem se ostatak država SAD-a razmatra zasebno također je dao osjetno bolje rezultate. Problem zasivnosti reziduala je riješen (grafovi 15-18), a njihova homoskedastičnosti nije narušena (graf 14). Normalnost reziduala malo je lošija nego u prošlom modelu (graf 13), ima teže repove, ali ipak nije toliko različita od normalne da bi ozbiljno narušila vjerodostojnost modela. P-vrijednosti testova o regresijskim koeficijentima i dalje su iznimno mali. To uključuje i p-vrijednost koeficijenta za regresor 'Ljekovi za krvni tlak' koja se u usporedbi sa starim modelom snizila na prihvatljivu razinu. Nadalje, vrijednosti koeficijenta determinacije i prilagođenog koeficijenta determinacije su otprilike 0.83 što znači da naš model objašnjava 83% varijacije podataka. To je nešto manje nego model za zapadne savezne države, ali je još uvijek dosta dobro za ovako složen problem.
+
+### Usporedba
+
+Iz iznosa koeficijenata obje regresije možemo zaključiti da veće stope zdravstvene osiguranosti te pregleda kolesterola imaju poželjan utjecaj na postotak kroničnih bubrežnih bolesti. Te od ova dva faktora, pregled kolesterola možemo izdvojiti kao značajnijeg u suzbijanju kroničnih bubrežnih bolesti u oba dijela države. Ipak u zapadnim saveznim državama ova prednost nije toliko izražena kao u ostatku SAD-a. Iznenađujuć rezultat ove analize je činjenica da godišnji pregledi naizgled imaju negativan utjecaj na kronične bolesti bubrega, to jest postoji trend da u populacijama u kojima više ljudi ide na godišnje pregleda ima i više kroničnih bubrežnih bolesti. Ta činjenica bi se mogla objasniti trećom skrivenom varijablom, koja utječe na obje varijable. Na primjer moguće je da u gradovima sa starijim stanovništvom ljudi više oboljevaju od bolesti, ali iz istog razloga češće idu na preglede. Moguće je i da u gradovima u kojima se ide češće na preglede se kronične bubrežne bolesti češće otkrivaju. Ove hipoteze ne možemo istražiti jer nemamo potrebne podatke. <!-- Još prokomentiraj bp_med kad se sazna sta je to tocno. -->
 

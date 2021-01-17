@@ -66,6 +66,12 @@ Svi podatci u datasetu izraženi su u dvije varijante: kao sirova stopa (Crude R
 health_data_adj = health_data[health_data$DataValueTypeID== "AgeAdjPrv",]
 ```
 
+```{r, echo=FALSE, message=FALSE}
+#Definiranje redoslijeda za Mjere - bit ce potrebno kasnije
+
+health_data_adj$Short_Question_Text <- factor(health_data_adj$Short_Question_Text, levels = c("Cholesterol Screening","Health Insurance","Taking BP Medication","Annual Checkup","Arthritis","Cancer (except skin)","Chronic Kidney Disease","COPD","Coronary Heart Disease","Current Asthma","Diabetes","High Blood Pressure","High Cholesterol","Mental Health","Physical Health","Stroke"))
+```
+
 U pomoćne varijable dodajemo podatke o populaciji i broju gradova za svaku saveznu državu i statistike po pojedinim saveznim državama.
 
 ```{r, message=FALSE}
@@ -92,13 +98,6 @@ health_data_adj$Affected_population =
   round( health_data_adj$Data_Value*health_data_adj$PopulationCount*0.01)
 ```
 
-
-```{r, echo=FALSE, message=FALSE}
-#Definiranje redoslijeda za Mjere - bit ce potrebno kasnije
-
-health_data_adj$Short_Question_Text <- factor(health_data_adj$Short_Question_Text, levels = c("Cholesterol Screening","Health Insurance","Taking BP Medication","Annual Checkup","Arthritis","Cancer (except skin)","Chronic Kidney Disease","COPD","Coronary Heart Disease","Current Asthma","Diabetes","High Blood Pressure","High Cholesterol","Mental Health","Physical Health","Stroke"))
-```
-
 \newpage
 
 # Deskriptivna statistika
@@ -118,35 +117,43 @@ myPink <- rgb(0.86, 0.76, 0.81)
 Prikaz raspodjele udjela građana koji primjenjuju pojedine preventivne mjere i imaju pojedina zdravstvena stanja:
 
 ```{r, echo=FALSE}
-boxplot(health_data_adj[health_data_adj$Short_Question_Text == "Cholesterol Screening",]$Data_Value,
-        health_data_adj[health_data_adj$Short_Question_Text == "Health Insurance",]$Data_Value,
-        health_data_adj[health_data_adj$Short_Question_Text == "Taking BP Medication",]$Data_Value,
-        health_data_adj[health_data_adj$Short_Question_Text == "Annual Checkup",]$Data_Value,
-        names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"),
-        col = myPurple
+#boxplot(health_data_adj[health_data_adj$Short_Question_Text == "Cholesterol Screening",]$Data_Value,
+#        health_data_adj[health_data_adj$Short_Question_Text == "Health Insurance",]$Data_Value,
+#        health_data_adj[health_data_adj$Short_Question_Text == "Taking BP Medication",]$Data_Value,
+#        health_data_adj[health_data_adj$Short_Question_Text == "Annual Checkup",]$Data_Value,
+#        names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"),
+#        col = myPurple
         #ylim = c(0,100)
-        )
+#        )
 
-onlyHealthOutcomes = health_data_adj %>% filter(Category == "Health Outcomes")
+#onlyHealthOutcomes = health_data_adj %>% filter(Category == "Health Outcomes")
 # ne znam zasto prikazuje i podatke koji nisu prosli kroz filter :(
+myColors <- c(rep(myPurple, 4), rep(myBlue, 12))
 par(mar=c(12,5,1,1))
-boxplot(Data_Value ~ Short_Question_Text, onlyHealthOutcomes, col = myBlue, las=2, xlab="", ylab = "Value (%)")
+boxplot(Data_Value ~ Short_Question_Text, health_data_adj, col = myColors, las=2, xlab="", ylab = "Value (%)")
 
 ```
 
 \newpage
 
-Pregledom histograma za svaku mjeru, primjećujemo da ih većina prati približno normalnu razdiobu, uz iznimku BP Medication koji izgleda bimodalno:
+Pregledom histograma za svaku mjeru, primjetili smo da ih većina prati približno normalnu razdiobu čime smo provjerili da nema podataka koji znatno odskaču od očekivanja. Iznimka je BP Medication čiji graf izgleda bimodalno, što smo istražili u kasnijoj fazi rada. Za ilustraciju priloženo je sljedećih 6 histograma.
 
 ```{r, echo=FALSE}
 old.par <- par(mfrow=c(2,3))
+
+#za ilustraciju prikaz samo prvih 6 histograma
+i=0
 for (measure in unique(health_data_adj$Short_Question_Text)) {
+  if(i>5){
+    break
+  }
   if (unique(health_data_adj[health_data_adj$Short_Question_Text == measure,]$Category) == c("Prevention")){
     color = myPurple
   } else {
     color = myBlue
   }
   hist(health_data_adj[health_data_adj$Short_Question_Text == measure,]$Data_Value, main = measure, xlab = "%", col = color)
+  i = i + 1
 }
 par(old.par)
 ```
@@ -178,18 +185,18 @@ Prikaz raspodjele udjela građana po državama koji primjenjuju pojedine prevent
 ```{r, echo=FALSE}
 #Boxplotovi za podatke ako grupiramo po saveznim državama
 
-boxplot(per_state_summary[per_state_summary$Short_Question_Text == "Cholesterol Screening",]$Total.percentage,
-        per_state_summary[per_state_summary$Short_Question_Text == "Health Insurance",]$Total.percentage,
-        per_state_summary[per_state_summary$Short_Question_Text == "Taking BP Medication",]$Total.percentage,
-        per_state_summary[per_state_summary$Short_Question_Text == "Annual Checkup",]$Total.percentage,
-        names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"),
-        col = myPurple
-        )
+#boxplot(per_state_summary[per_state_summary$Short_Question_Text == "Cholesterol Screening",]$Total.percentage,
+#        per_state_summary[per_state_summary$Short_Question_Text == "Health Insurance",]$Total.percentage,
+#        per_state_summary[per_state_summary$Short_Question_Text == "Taking BP Medication",]$Total.percentage,
+#        per_state_summary[per_state_summary$Short_Question_Text == "Annual Checkup",]$Total.percentage,
+#        names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"),
+#        col = myPurple
+#        )
 
 #isti problem kao i gore
-onlyHealthOutcomes = per_state_summary %>% filter(Category == "Health Outcomes")
+#onlyHealthOutcomes = per_state_summary %>% filter(Category == "Health Outcomes")
 par(mar=c(12,5,1,1))
-boxplot(Total.percentage ~ Short_Question_Text, data = onlyHealthOutcomes, col = myBlue, las=2, xlab="", ylab="Value(%)")
+boxplot(Total.percentage ~ Short_Question_Text, data = per_state_summary, col = myColors, las=2, xlab="", ylab="Value(%)")
 ```
 
 \newpage
@@ -207,10 +214,12 @@ Florida <- per_state_summary[(per_state_summary$StateDesc == "Florida" & per_sta
 
 counts <- matrix(c(Ohio$Total.percentage, Florida$Total.percentage), nrow = 2, byrow = TRUE)
 
-barplot(counts, names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"), col = c(myRed, myGreen), beside = TRUE)
-legend("top",
+barplot(counts, names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"), col = c(myPink, myPurple), beside = TRUE)
+par(xpd=TRUE)
+legend(4.5, 80,
       legend = c("Ohio", "Florida"),
-       fill = c(myRed, myGreen))
+       fill = c(myPink, myPurple),
+      ncol=2)
 
 ```
 

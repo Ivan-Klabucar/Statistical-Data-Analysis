@@ -22,7 +22,7 @@ library('ggplot2')
 
 Navike svakog čovjeka mogu imati pozitivan ili negativan utjecaj na njegovo zdravlje. U moderno doba uobičajeno je da čovjek iz raznih izvora saznaje razne informacije o utjecaju pojedinih akcija na njegovo zdravlje. U moru informacija ponekad je, međutim, teško razlučiti bitno od nebitnog, istinito od neistintog i odrediti koje navike imaju stvarni utjecaj na zdravlje i koliki taj utjecaj zapravo jest. 
 
-Cilj ovog projekta je istražiti preventivne mjere i zdravstvene tegobe koje imaju ljudi u raznim američkim gradovima, postoji li razlika u navikama ljudi u različitim gradovima i potencijalno pronaći vezu između pojedinih navika i njihovih utjecaja na zdravlje.
+Cilj ovog projekta istražiti je preventivne mjere i zdravstvene tegobe koje imaju ljudi u raznim američkim gradovima, postoji li razlika u navikama ljudi u različitim gradovima i potencijalno pronaći vezu između pojedinih navika i njihovih utjecaja na zdravlje.
 
 # Učitavanje podataka
 
@@ -72,32 +72,49 @@ health_data_adj = health_data[health_data$DataValueTypeID== "AgeAdjPrv",]
 health_data_adj$Short_Question_Text <- factor(health_data_adj$Short_Question_Text, levels = c("Cholesterol Screening","Health Insurance","Taking BP Medication","Annual Checkup","Arthritis","Cancer (except skin)","Chronic Kidney Disease","COPD","Coronary Heart Disease","Current Asthma","Diabetes","High Blood Pressure","High Cholesterol","Mental Health","Physical Health","Stroke"))
 ```
 
-U pomoćne varijable dodajemo podatke o populaciji i broju gradova za svaku saveznu državu i statistike po pojedinim saveznim državama.
+Za daljnji rad, u dataset dodajemo novi stupac za ukupan broj ljudi zahvaćenih određenom mjerom ili zdravstvenim stanjem. Također, u pomoćne varijable dodajemo podatke o populaciji i broju gradova za svaku saveznu državu i statistike po pojedinim saveznim državama. Pritom, moramo biti oprezni jer je mjera 'Taking BP Medication' dana kao udio ljudi koji uzimaju lijekove protiv visokog krvnog tlaka među svim ljudima koji pate od visokog krvnog tlaka, ne kao udio u cijeloj populaciji grada. Zato pri izračunu broja ljudi zahvaćenih tom mjerom moramo uzeti u obzir i postotak ljudi koji pati od visokog krvnog tlaka.
 
 ```{r, message=FALSE}
+
+high_bp <- health_data_adj %>%
+  filter(Short_Question_Text == 'High Blood Pressure') %>%
+  select(CityName, Data_Value)
+
+health_data_adj$Affected_population = 
+  round( health_data_adj$Data_Value*health_data_adj$PopulationCount*0.01)
+
+```
+
+```{r, echo=FALSE, message=FALSE}
+for (city in unique(health_data_adj$CityName)) {
+    health_data_adj$Affected_population[health_data_adj$Short_Question_Text == 'Taking BP Medication' & health_data_adj$CityName == city] = round(
+    health_data_adj$Affected_population[health_data_adj$Short_Question_Text == 'Taking BP Medication' & health_data_adj$CityName == city] *
+    high_bp$Data_Value[high_bp$CityName == city] * 0.01)
+}
+
 state_data <- health_data_adj %>% group_by(StateDesc) %>% summarise(
   City.count = n_distinct(CityName),
   Population.count = sum(unique(PopulationCount))
 )
 
+```
+
+```{r, message=FALSE}
 per_state_summary <- health_data_adj %>% 
   group_by(StateDesc, Category, Measure, Short_Question_Text) %>% summarise(
-  Total.percentage = sum(Data_Value*PopulationCount)/sum(PopulationCount),
   Population = sum(PopulationCount),
-  Population.affected = round(sum(Data_Value*PopulationCount)/100)
+  Affected_population = sum(Affected_population),
+  Total.percentage = 100 * Affected_population/Population
 )
-
 ```
 
-Za daljnji rad u dataset dodajemo nove stupce za postotak u svom mjerenom stanovništvu i ukupan broj ljudi zahvaćenih određenom mjerom ili zdravstvenim stanjem.
-```{r, message=FALSE}
-health_data_adj$Percentage_in_Total = 
-  health_data_adj$Data_Value*health_data_adj$PopulationCount/sum(state_data$Population.count)
-
-health_data_adj$Affected_population = 
-  round( health_data_adj$Data_Value*health_data_adj$PopulationCount*0.01)
+```{r, message=FALSE, echo=FALSE}
+for (state in unique(per_state_summary$StateDesc)) {
+    per_state_summary$Total.percentage[per_state_summary$Short_Question_Text == 'Taking BP Medication' & per_state_summary$StateDesc == state] = 
+    per_state_summary$Total.percentage[per_state_summary$Short_Question_Text == 'Taking BP Medication' & per_state_summary$StateDesc == state] /
+    (per_state_summary$Total.percentage[per_state_summary$Short_Question_Text == 'High Blood Pressure' & per_state_summary$StateDesc == state]*0.01)
+}
 ```
-
 \newpage
 
 # Deskriptivna statistika
@@ -117,17 +134,6 @@ myPink <- rgb(0.86, 0.76, 0.81)
 Prikaz raspodjele udjela građana koji primjenjuju pojedine preventivne mjere i imaju pojedina zdravstvena stanja:
 
 ```{r, echo=FALSE}
-#boxplot(health_data_adj[health_data_adj$Short_Question_Text == "Cholesterol Screening",]$Data_Value,
-#        health_data_adj[health_data_adj$Short_Question_Text == "Health Insurance",]$Data_Value,
-#        health_data_adj[health_data_adj$Short_Question_Text == "Taking BP Medication",]$Data_Value,
-#        health_data_adj[health_data_adj$Short_Question_Text == "Annual Checkup",]$Data_Value,
-#        names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"),
-#        col = myPurple
-        #ylim = c(0,100)
-#        )
-
-#onlyHealthOutcomes = health_data_adj %>% filter(Category == "Health Outcomes")
-# ne znam zasto prikazuje i podatke koji nisu prosli kroz filter :(
 myColors <- c(rep(myPurple, 4), rep(myBlue, 12))
 par(mar=c(12,5,1,1))
 boxplot(Data_Value ~ Short_Question_Text, health_data_adj, col = myColors, las=2, xlab="", ylab = "Value (%)")
@@ -141,7 +147,6 @@ Pregledom histograma za svaku mjeru, primjetili smo da ih većina prati približ
 ```{r, echo=FALSE}
 old.par <- par(mfrow=c(2,3))
 
-#za ilustraciju prikaz samo prvih 6 histograma
 i=0
 for (measure in unique(health_data_adj$Short_Question_Text)) {
   if(i>5){
@@ -159,8 +164,6 @@ par(old.par)
 ```
 
 ```{r, echo=FALSE, message=FALSE, include=FALSE}
-#Ovo je nemoguce lijepo formatirat u pdfu pa sam izbacila
-#Mjere položaja i rasipanja za svaku preventivnu mjeru i health outcome
 measure_summary <- health_data_adj %>% 
   group_by(Short_Question_Text) %>% summarise(
   Total.percentage = sum(Data_Value*PopulationCount/sum(state_data$Population.count)),
@@ -183,18 +186,6 @@ measure_summary <- health_data_adj %>%
 Prikaz raspodjele udjela građana po državama koji primjenjuju pojedine preventivne mjere i koji imaju pojedina zdravstvena stanja:
 
 ```{r, echo=FALSE}
-#Boxplotovi za podatke ako grupiramo po saveznim državama
-
-#boxplot(per_state_summary[per_state_summary$Short_Question_Text == "Cholesterol Screening",]$Total.percentage,
-#        per_state_summary[per_state_summary$Short_Question_Text == "Health Insurance",]$Total.percentage,
-#        per_state_summary[per_state_summary$Short_Question_Text == "Taking BP Medication",]$Total.percentage,
-#        per_state_summary[per_state_summary$Short_Question_Text == "Annual Checkup",]$Total.percentage,
-#        names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"),
-#        col = myPurple
-#        )
-
-#isti problem kao i gore
-#onlyHealthOutcomes = per_state_summary %>% filter(Category == "Health Outcomes")
 par(mar=c(12,5,1,1))
 boxplot(Total.percentage ~ Short_Question_Text, data = per_state_summary, col = myColors, las=2, xlab="", ylab="Value(%)")
 ```
@@ -206,13 +197,12 @@ boxplot(Total.percentage ~ Short_Question_Text, data = per_state_summary, col = 
 Prikaz udjela stanovnika koji se pridržavaju pojedinih mjera za Ohio i Floridu:
 
 ```{r, echo=FALSE}
-#Deskriptivna statistika za Ohio i Floridu
 
-Ohio <- per_state_summary[(per_state_summary$StateDesc == "Ohio" & per_state_summary$Category == "Prevention"),]
+Ohio <- per_state_summary[(per_state_summary$StateDesc == "Ohio"),]
 
-Florida <- per_state_summary[(per_state_summary$StateDesc == "Florida" & per_state_summary$Category == "Prevention"),]
+Florida <- per_state_summary[(per_state_summary$StateDesc == "Florida"),]
 
-counts <- matrix(c(Ohio$Total.percentage, Florida$Total.percentage), nrow = 2, byrow = TRUE)
+counts <- matrix(c(Ohio[Ohio$Category == "Prevention",]$Total.percentage, Florida[Florida$Category == "Prevention",]$Total.percentage), nrow = 2, byrow = TRUE)
 
 barplot(counts, names = c("Cholesterol scr", "Health insurance", "BP medication", "Annual checkup"), col = c(myPink, myPurple), beside = TRUE)
 par(xpd=TRUE)
@@ -223,55 +213,69 @@ legend(4.5, 80,
 
 ```
 
-Hi-kvadrat testovi proporcija za Ohio i Floridu:
+### Usporedba popularnosti metoda preventivne zaštite za Ohio i Floridu
 
-Prvi test uspoređuje udio cholesterol screening-a u Ohiu i Floridi.
-Hipoteze:
-H0 - udjeli su jednaki
-H1 - udio u Floridi je veći nego udio u Ohiu
-Dobivamo ekstremno malu p-vrijednost pa možemo odbaciti H0 u korist H1
+Želimo provjeriti postoji li neka metoda preventivne zaštite koja je ”popularnija” u saveznoj državi Ohio nego u saveznoj državi Florida. Kako bismo provjerili to, za svaku metodu preventivne zaštite provest ćemo z-test dviju proporcija.
 
-Drugi test uspoređuje udio heart insurance-a u Ohiu i Floridi.
-Hipoteze:
-H0 - udjeli su jednaki
-H1 - udio u Floridi je veći nego udio u Ohiu
-Dobivamo ekstremno malu p-vrijednost pa možemo odbaciti H0 u korist H1
-
-Treći test uspoređuje udio Uzimanja lijekova za visoki krvni tlak u Ohiu i Floridi.
-Hipoteze:
-H0 - udjeli su jednaki
-H1 - udio u Ohiu je veći nego udio u Floridi
-Dobivamo ekstremno malu p-vrijednost pa možemo odbaciti H0 u korist H1
-
-Četvrti test uspoređuje udio godišnjih pregleda u Ohiu i Floridi.
-Hipoteze:
-H0 - udjeli su jednaki
-H1 - udio u Ohiu je veći nego udio u Floridi
-Dobivamo ekstremno malu p-vrijednost pa možemo odbaciti H0 u korist H1
-
-
-Zbog velikih uzoraka u hi-kvadrat testu proporcija uvijek ćemo dobiti male p-vrijednosti
-pa i jako male razlike u proporcijama ispadaju statistički značajne.
+```{r, echo=FALSE, message=FALSE}
+cholesterol_scr_affected = c(Ohio[Ohio$Short_Question_Text == "Cholesterol Screening",]$Affected_population, Florida[Florida$Short_Question_Text == "Cholesterol Screening",]$Affected_population)
+cholesterol_scr_total = c(Ohio[Ohio$Short_Question_Text == "Cholesterol Screening",]$Population, Florida[Florida$Short_Question_Text == "Cholesterol Screening",]$Population)
+insurance_affected = c(Ohio[Ohio$Short_Question_Text == "Health Insurance",]$Affected_population, Florida[Florida$Short_Question_Text == "Health Insurance",]$Affected_population)
+insurance_total = c(Ohio[Ohio$Short_Question_Text == "Health Insurance",]$Population, Florida[Florida$Short_Question_Text == "Health Insurance",]$Population)
+BP_med_affected = c(Ohio[Ohio$Short_Question_Text == "Taking BP Medication",]$Affected_population, Florida[Florida$Short_Question_Text == "Taking BP Medication",]$Affected_population)
+BP_med_total = c(Ohio[Ohio$Short_Question_Text == "High Blood Pressure",]$Affected_population, Florida[Florida$Short_Question_Text == "High Blood Pressure",]$Affected_population)
+checkup_affected = c(Ohio[Ohio$Short_Question_Text == "Annual Checkup",]$Affected_population, Florida[Florida$Short_Question_Text == "Annual Checkup",]$Affected_population)
+checkup_total = c(Ohio[Ohio$Short_Question_Text == "Annual Checkup",]$Population, Florida[Florida$Short_Question_Text == "Annual Checkup",]$Population)
+```
 
 ```{r}
-#Hi-kvadrat testovi proporcije za Ohio i Floridu
 
-res1 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Cholesterol Screening",]$Population.affected, Florida[Florida$Short_Question_Text == "Cholesterol Screening",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Cholesterol Screening",]$Population, Florida[Florida$Short_Question_Text == "Cholesterol Screening",]$Population), alternative ="l")
+res1 <- prop.test(cholesterol_scr_affected, cholesterol_scr_total,
+                  alternative ="l", correct = FALSE)
 
 res1
 
-res2 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Health Insurance",]$Population.affected, Florida[Florida$Short_Question_Text == "Health Insurance",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Health Insurance",]$Population, Florida[Florida$Short_Question_Text == "Health Insurance",]$Population), alternative ="l")
+res2 <- prop.test(insurance_affected, insurance_total,
+                  alternative ="l", correct = FALSE)
 
 res2
 
-res3 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Taking BP Medication",]$Population.affected, Florida[Florida$Short_Question_Text == "Taking BP Medication",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Taking BP Medication",]$Population, Florida[Florida$Short_Question_Text == "Taking BP Medication",]$Population), alternative ="g")
+res3 <- prop.test(BP_med_affected, BP_med_total,
+                  alternative ="g", correct = FALSE)
 
 res3
 
-res4 <- prop.test(c(Ohio[Ohio$Short_Question_Text == "Annual Checkup",]$Population.affected, Florida[Florida$Short_Question_Text == "Annual Checkup",]$Population.affected), c(Ohio[Ohio$Short_Question_Text == "Annual Checkup",]$Population, Florida[Florida$Short_Question_Text == "Annual Checkup",]$Population), alternative ="g")
+res4 <- prop.test(checkup_affected, checkup_total,
+                  alternative ="g", correct = FALSE)
 
 res4
 ```
+
+Prvi test uspoređuje udio ljudi koji su u zadnjih 5 godina mjerili kolesterol u Ohiu i Floridi.  
+Hipoteze:  
+H~0~ - udjeli su jednaki  
+H~1~ - udio u Floridi veći je nego udio u Ohiu  
+Dobivamo ekstremno malu p-vrijednost pa možemo odbaciti H~0~ u korist H~1~  
+
+Drugi test uspoređuje udio ljudi bez zdravstvenog osiguranja u Ohiu i Floridi.  
+Hipoteze:  
+H~0~ - udjeli su jednaki  
+H~1~ - udio u Floridi veći je nego udio u Ohiu  
+Dobivamo ekstremno malu p-vrijednost pa možemo odbaciti H~0~ u korist H~1~  
+
+Treći test uspoređuje udio ljudi koji uzimaju lijekove za krvni tlak u Ohiu i Floridi.
+Hipoteze:  
+H~0~ - udjeli su jednaki  
+H~1~ - udio u Ohiu veći je nego udio u Floridi  
+Dobivamo ekstremno malu p-vrijednost pa možemo odbaciti H~0~ u korist H~1~  
+
+Četvrti test uspoređuje udio ljudi koji su u zadnjih godinu dana bili na rutinskom pregledu kod liječnika u Ohiu i Floridi.  
+Hipoteze:  
+H~0~ - udjeli su jednaki  
+H~1~ - udio u Ohiu veći je nego udio u Floridi  
+Dobivamo ekstremno malu p-vrijednost pa možemo odbaciti H~0~ u korist H~1~  
+
+Zbog velikih uzoraka u z-testu dviju proporcija uvijek ćemo dobiti male p-vrijednosti pa i jako male razlike u proporcijama ispadaju statistički značajne. Ovdje dolazi do izražaja činjenica da ako je rezultat statistički značajan, ne znači da je rezultat važan. Ako pogledamo graf koji prikazuje postotak ljudi koji su bili na pregledu u zadnjih godinu dana, vidimo da je razlika iznimno mala, ali se pokazala statistički značajnom.
 
 \newpage
 
@@ -280,7 +284,6 @@ res4
 Prikaz udjela stanovništva koje boluje od kroničnih plućnih bolesti (COPD) u državama Illinois, Iowa i South Dakota:
 
 ```{r, echo=FALSE}
-#Deskriptivna statistika za odabrane savezne drzave
 Illinois_COPD <- per_state_summary[(per_state_summary$StateDesc == "Illinois" & per_state_summary$Short_Question_Text == "COPD"),]
 
 Iowa_COPD <- per_state_summary[(per_state_summary$StateDesc == "Iowa" & per_state_summary$Short_Question_Text == "COPD"),]
@@ -290,29 +293,35 @@ S_Dakota_COPD <- per_state_summary[(per_state_summary$StateDesc == "South Dakota
 barplot(c(Illinois_COPD$Total.percentage, Iowa_COPD$Total.percentage, S_Dakota_COPD$Total.percentage), col = c(myPink, myPurple, myBlue), names = c("Illinois", "Iowa", "South Dakota"))
 ```
 
-Hi-kvadrat test za proporcije također smo koristili da pronađemo razlike za COPD u državama Illinois, Iowa i South Dakota.
-Hipoteze:
-H0 - udjeli su jednaki
-H1 - udjeli su različiti
-Dobili smo malu p-vrijednost pa sukladno tome odbacujemo H0 u korist H1.
+### Usporedba postotka ljudi koji boluju od kroničnih plućnih bolesti
 
-Sukladno prijašnjim hi-kvadrat testovima, zbog velikih uzoraka čak i male
-razlike u proporcijama imaju veliku značajnost.
+Budući da želimo provjeriti razlikuju li se postotci ljudi koji boluju od kroničnih plućnih bolesti među trima odabranim državama. Kako bismo provjerili postoji li razlika, koristit ćemo $\chi^2$ test za proporcije.
+```{r, echo=FALSE, message=FALSE}
+COPD_affected = c(Illinois_COPD$Affected_population, Iowa_COPD$Affected_population, S_Dakota_COPD$Affected_population)
+COPD_total = c(Illinois_COPD$Population, Iowa_COPD$Population, S_Dakota_COPD$Population)
+```
 
 ```{r}
-#Hi-kvadrat test proporcije za COPD u odabranim drzavama
-res5 <- prop.test(c(Illinois_COPD$Population.affected, Iowa_COPD$Population.affected, S_Dakota_COPD$Population.affected), c(Illinois_COPD$Population, Iowa_COPD$Population, S_Dakota_COPD$Population))
+res5 <- prop.test(COPD_affected, COPD_total)
 
 res5
 ```
+
+Hipoteze:  
+H~0~ - udjeli su jednaki  
+H~1~ - udjeli su različiti  
+Dobili smo malu p-vrijednost pa sukladno tome odbacujemo H~0~ u korist H~1~.  
+
+Iz grafa koji je prikazan na početku analize, dalo se pretpostaviti da u Južnoj Dakoti ljudi manje obolijevaju od kroničnih plućnih bolesti, dok je udio oboljelih ljudi otprilike jednak u Illinoisu i Iowe. Sukladno prijašnjim statističkim testovima, zbog velikih uzoraka čak i male
+razlike u proporcijama daju statistički značajne rezultate.
 
 \newpage
 
 # Utjecaj metoda prevencije na bolesti
 
-Napravit ćemo multivarijantnu linearnu regresiju kako bismo perliminarno vidjeli na koje bolesti naše mjere prevencije imaju značajni učinak. Za svaku bolest odredit ćemo model oblika: Očekivan postotak bolesti = SUM( koeficijent_i * postotak_prevencije_i  ), na razini čitave države.
+Napravit ćemo multivarijatnu linearnu regresiju kako bismo perliminarno vidjeli na koje bolesti naše mjere prevencije imaju značajan učinak. Za svaku bolest odredit ćemo model oblika: Očekivan postotak bolesti = $\sum koeficijent_{i} * postotakPrevencije_{i}$, na razini čitave države.
 
-```{r}
+```{r, message=FALSE}
 
 per_city_data <- health_data_adj %>% group_by(CityName, PopulationCount, StateDesc) %>% summarise(
   checkup = Data_Value[Short_Question_Text == "Annual Checkup"],
@@ -332,41 +341,41 @@ per_city_data <- health_data_adj %>% group_by(CityName, PopulationCount, StateDe
   stroke = Data_Value[Short_Question_Text == "Stroke"],
   ckd = Data_Value[Short_Question_Text == "Chronic Kidney Disease"]
 )
-
-# per_city_data <- per_city_data[per_city_data['StateDesc'] != "California" & per_city_data['StateDesc'] != "Colorado" & per_city_data['StateDesc'] != "Washington" & per_city_data['StateDesc'] != "Oregon" & per_city_data['StateDesc'] != "Nevada",]
 ```
 
-\newpage
-
-#Utjecaj metoda prevencije na bolesti
 
 Ovakvim pristupom dobit ćemo grube procjene 12 linearnih modela koji će nam pomoći da se odlučimo koje bolesti da pobliže proučimo.
 
 ```{r}
-formula <- cbind(arthritis, cancer_noskin, copd, coronary_heart_disease, asthma, diabetes, high_bp, high_col, mental_health, physical_health, stroke, ckd) ~ checkup + insurance + bp_med + chol_screen
+formula <- cbind(arthritis, cancer_noskin, copd,
+                 coronary_heart_disease, asthma, diabetes,
+                 high_bp, high_col, mental_health,
+                 physical_health, stroke, ckd) ~ checkup + insurance + bp_med + chol_screen
 fit <- lm(formula, data=per_city_data)
 summary(fit)
 ```
-Rezultati kronične bubrežne bolesti ističu se kao zanimljivi jer ih relativno dobro predviđamo linearnom regresijom, a također čini se kao da je jedan regresor nepotreban.
+Rezultati za kronične bubrežne bolesti ističu se kao zanimljivi jer ih relativno dobro predviđamo linearnom regresijom, a također čini se kao da je jedan regresor nepotreban.
 
 ## Kronične Bubrežne bolesti
 
-U ovom potpoglavlju istražit ćemo vezu između ove četiri mjere prevencije i kroničnih bubrežnih bolesti (KBB). Tu vezu pokušat ćemo objasniti metodom linearne regresije, koju ćemo obaviti na razini cijele države.
+U ovom potpoglavlju istražit ćemo vezu između dane četiri mjere prevencije i kroničnih bubrežnih bolesti (KBB). Tu vezu pokušat ćemo objasniti metodom linearne regresije, koju ćemo obaviti na razini cijele države.
 
-Prvo pogledajmo grafove koje prikazuju pojedinačne veze između metode prevencija i KBB, na sljedećim grafovima svaka točka predstavlja jedan grad.
-```{r}
-plot(per_city_data$checkup, per_city_data$ckd, xlab="Godišnji pregled (%)", ylab="Kronične bolesti bubrega (%)")
+Prvo pogledajmo grafove koje prikazuju pojedinačne veze između metode prevencija i KBB. Na sljedećim grafovima svaka točka predstavlja jedan grad.
+
+```{r, echo=FALSE, warning=FALSE}
+plot(per_city_data$checkup, per_city_data$ckd, xlab="Godisnji pregled (%)", ylab="Kronične bolesti bubrega (%)")
 abline(lm(ckd ~ checkup, data=per_city_data), col="blue")
 plot(per_city_data$insurance, per_city_data$ckd, xlab="Zdravstveno osigurani (%)", ylab="Kronične bolesti bubrega (%)")
 abline(lm(ckd ~ insurance, data=per_city_data), col="blue")
-plot(per_city_data$bp_med, per_city_data$ckd, xlab="Ljekovi za krvni tlak (%)", ylab="Kronične bolesti bubrega (%)")
+plot(per_city_data$bp_med, per_city_data$ckd, xlab="lijekovi za krvni tlak (%)", ylab="Kronične bolesti bubrega (%)")
 abline(lm(ckd ~ bp_med, data=per_city_data), col="blue")
 plot(per_city_data$chol_screen, per_city_data$ckd, xlab="Pregled kolesterola (%)", ylab="Kronične bolesti bubrega (%)")
 abline(lm(ckd ~ chol_screen, data=per_city_data), col="blue")
 ```
-Plavi prvaci na svakom grafu predstavljaju linearni model s obzirom na samo jednu preventivnu mjeru. Primjećujemo da postoji jak utjecaj zdravstvenog osiguranja te učestalosti testiranja kolesterola na KBB, no grafovi su previše raspršeni da bi ijedan od njih u potpunosti objasnio fenomen. Iz grafova godišnjih pregleda i uzimanja ljekova za krvni tlak ne možemo previše zaključiti.
 
-```{r}
+Plavi pravci na svakom grafu predstavljaju linearni model s obzirom na samo jednu preventivnu mjeru. Primjećujemo da postoji jak utjecaj zdravstvenog osiguranja te učestalosti testiranja kolesterola na KBB, no grafovi su previše raspršeni da bi ijedan od njih u potpunosti objasnio fenomen. Iz grafova godišnjih pregleda i uzimanja lijekova za krvni tlak ne možemo previše zaključiti.
+
+```{r, echo=FALSE}
 summary(fit)['Response ckd']
 par(mfrow=c(2,1), mar=c(3.3,3.1,1,0), mgp=c(1.5, 0.5, 0))
 qqnorm(rstandard(fit)[, 'ckd'], main="Normalni QQ Graf", ylab="Standardizirani reziduali", sub="Graf 1")
@@ -374,21 +383,21 @@ qqline(rstandard(fit)[, 'ckd'], col = "steelblue", lwd = 2)
 plot(fit$fitted.values[, 'ckd'], rstandard(fit)[, 'ckd'], ylab="Standardizirani reziduali", xlab="Procjena y", sub="Graf 2")
 abline(0, 0, col="blue")
 par(mfrow=c(2,2))
-plot(per_city_data$checkup, rstandard(fit)[, 'ckd'], ylab="Standardizirani reziduali", xlab="Godišnji pregled (%)", sub="Graf 3")
+plot(per_city_data$checkup, rstandard(fit)[, 'ckd'], ylab="Standardizirani reziduali", xlab="Godisnji pregled (%)", sub="Graf 3")
 abline(0, 0, col="blue")
 plot(per_city_data$insurance, rstandard(fit)[, 'ckd'], ylab="Standardizirani reziduali", xlab="Zdravstveno osigurani (%)", sub="Graf 4")
 abline(0, 0, col="blue")
-plot(per_city_data$bp_med, rstandard(fit)[, 'ckd'], ylab="Standardizirani reziduali", xlab="Ljekovi za krvni tlak (%)", sub="Graf 5")
+plot(per_city_data$bp_med, rstandard(fit)[, 'ckd'], ylab="Standardizirani reziduali", xlab="lijekovi za krvni tlak (%)", sub="Graf 5")
 abline(0, 0, col="blue")
 plot(per_city_data$chol_screen, rstandard(fit)[, 'ckd'], ylab="Standardizirani reziduali", xlab="Pregled kolesterola (%)", sub="Graf 6")
 abline(0, 0, col="blue")
 ```
-U zadnjem stupcu rezultata regresije "Pr(>|t|)", za svaki parametar možemo vidjeti p-vrijednost testa o regresijskim koeficijentima. Iz tog stupca možemo očitati da su faktori zdravstvenog osiguranja, pregleda kolesterola, te godišnjih pregleda značajni čak i pri jako malim vrijednostima alfa. Isto ne možemo reći i za utjecaj uzimanja ljekova za krvni tlak čija je p-vrijednost iznimno velika. Također iako graf 2 opravdava pretpostavku homoskedastičnosti reziduala te graf 1 opravdava pretpostavku normalnosti pogreške, ne možemo reći da su reziduali neovisni o svim regresorima. Zavisnost reziduala o regresorima se najbolje vidi na grafu 5, ali se nazire i na grafu 3. Reziduali koji pripadaju regresoru 'Ljekovi za krvni tlak' u rasponu od 45% do 56% grupiraju se u jednu istaknutu nakupinu, a oni koji pripadaju istom regresoru u rasponu od 56% naviše se grupiraju u drugu. Ovakva situacija sugerira da postoji još nekakav bitan faktor kojeg nismo uzeli u obzir unutar ovog modela. Iz grafa 5 vidimo da u slučajevima kada je dotični regresor unutar raspona [45, 56] naš model daje premalu procjenu, a kada je u rasponu [56, 100] preveliku procjenu.
+U zadnjem stupcu rezultata regresije "Pr(>|t|)", za svaki parametar možemo vidjeti p-vrijednost testa o regresijskim koeficijentima. Iz tog stupca možemo očitati da su faktori zdravstvenog osiguranja, pregleda kolesterola, te godišnjih pregleda značajni čak i pri jako malim vrijednostima alfa. Isto ne možemo reći i za utjecaj uzimanja lijekova za krvni tlak čija je p-vrijednost iznimno velika. Također iako graf 2 opravdava pretpostavku homoskedastičnosti reziduala te graf 1 opravdava pretpostavku normalnosti pogreške, ne možemo reći da su reziduali neovisni o svim regresorima. Zavisnost reziduala o regresorima najbolje se vidi na grafu 5, ali se nazire i na grafu 3. Reziduali koji pripadaju regresoru 'lijekovi za krvni tlak' u rasponu od 45% do 56% grupiraju se u jednu istaknutu nakupinu, a oni koji pripadaju istom regresoru u rasponu od 56% naviše se grupiraju u drugu. Ovakva situacija sugerira da postoji još nekakav bitan faktor kojeg nismo uzeli u obzir unutar ovog modela. Iz grafa 5 vidimo da u slučajevima kada je dotični regresor unutar raspona [45, 56] naš model daje premalu procjenu, a kada je u rasponu [56, 100] preveliku procjenu.
 
-Imajući na umu da smo već ustanovili da preventivna mjera 'Uzimanja ljekova za krvni tlak' ima bimodalnu distribuciju koja se identično poklapa sa grupama reziduala na grafu 5, možemo probati naše podatke razdvojiti na dvije grupe te nad njima provesti zasebne linearne regresije. 
+Imajući na umu da smo već ustanovili da preventivna mjera 'Uzimanja lijekova za krvni tlak' ima bimodalnu distribuciju koja se identično poklapa sa grupama reziduala na grafu 5, možemo pokušati naše podatke razdvojiti na dvije grupe te nad njima provesti zasebne linearne regresije. 
 
-Ako istaknemo savezne države sa 75% ili više gradova koji pripadaju rasponu [0, 56] za regresor 'Uzimanja ljekova za krvni tlak' dobijemo sljedeće:
-```{r}
+Ako istaknemo savezne države sa 75% ili više gradova koji pripadaju rasponu [0, 56] za regresor 'Uzimanja lijekova za krvni tlak' dobijemo sljedeće:
+```{r, echo=FALSE, warning=FALSE}
 bp_med_lower <- per_city_data[per_city_data['bp_med'] < 56, ]
 bp_med_lower <- bp_med_lower %>% group_by(StateDesc) %>% summarise(
   cities_low_bp_med = n_distinct(CityName)
@@ -398,18 +407,22 @@ bp_med_lower$Fraction_of_cities = bp_med_lower$cities_low_bp_med / bp_med_lower$
 bp_med_lower <- bp_med_lower[bp_med_lower$Fraction_of_cities >= 0.75, c("StateDesc", "Fraction_of_cities")]
 bp_med_lower
 ```
-![Savezne države i bimodalnost regresora 'Uzimanje ljekova za krvni tlak'](map_bimodal.png)
-Razumno je, dakle, zaključiti da zapadne savezne države djele neku zajedničku karakteristiku koja ih razlikuje od ostatka SAD-a.
-Probat ćemo problem zavisnosti reziduala riješiti izvođenjem postupka linearne regresije zasebno za ove dvije grupe saveznih država.
 
-```{r}
+\newpage
+
+![Savezne države i bimodalnost regresora 'Uzimanje lijekova za krvni tlak'](map_bimodal.png)
+
+Razumno je, dakle, zaključiti da zapadne savezne države dijele neku zajedničku karakteristiku koja ih razlikuje od ostatka SAD-a.
+Pokušat ćemo problem zavisnosti reziduala rješiti izvođenjem postupka linearne regresije zasebno za ove dvije grupe saveznih država.
+
+```{r, echo=FALSE}
 city_data_west <- per_city_data[per_city_data$StateDesc %in% bp_med_lower[['StateDesc']], ]
 city_data_rest <- per_city_data[!(per_city_data$StateDesc %in% bp_med_lower[['StateDesc']]), ]
 ```
 
 ### Zapadne savezne države
 
-```{r}
+```{r, echo=FALSE,warning=FALSE}
 
 fit2 <- lm(ckd ~ insurance + chol_screen + checkup + bp_med, data=city_data_west)
 summary(fit2)
@@ -421,22 +434,22 @@ plot(fit2$fitted.values, rstandard(fit2), ylab="Standardizirani reziduali", xlab
 abline(0, 0, col="blue")
 
 par(mfrow=c(2,2))
-plot(city_data_west$checkup, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Godišnji pregled (%)", sub="Graf 9")
+plot(city_data_west$checkup, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Godisnji pregled (%)", sub="Graf 9")
 abline(0, 0, col="blue")
 plot(city_data_west$insurance, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Zdravstveno osigurani (%)", sub="Graf 10")
 abline(0, 0, col="blue")
 plot(city_data_west$chol_screen, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Pregled kolesterola (%)", sub="Graf 11")
 abline(0, 0, col="blue")
-plot(city_data_west$bp_med, rstandard(fit2), ylab="Standardizirani reziduali", xlab="Ljekovi za krvni tlak (%)", sub="Graf 12")
+plot(city_data_west$bp_med, rstandard(fit2), ylab="Standardizirani reziduali", xlab="lijekovi za krvni tlak (%)", sub="Graf 12")
 abline(0, 0, col="blue")
 ```
 
-Model u kojem se zapadne države SAD-a razmatraju zasebno dao je osjetno bolje rezultate. Problem zasivnosti reziduala je riješen (grafovi 9-12), a njihova homoskedastičnosti nije narušena (graf 8). Normalnost reziduala malo je lošija nego u prošlom modelu (graf 7), ima teži desni rep, ali ipak nije toliko različita od normalne da bi ozbiljno narušila vjerodostojnost modela. P-vrijednosti testova o regresijskim koeficijentima su i dalje iznimno mali, te se p-vrijednost koeficijenta za regresor 'Ljekovi za krvni tlak' snizila na prihvatljivu razinu. Nadalje, vrijednosti koeficijenta determinacije i prilagođenog koeficijenta determinacije su nešto više od 0.87 što znači da naš model objašnjava 87% varijacije podataka. Za složen fenomen poput pojave kroničnih bubrežnih bolesti u populaciji, moglo bi se reći da je taj postotak poprilično visok. 
+Model u kojem se zapadne države SAD-a razmatraju zasebno dao je osjetno bolje rezultate. Problem zavisnosti reziduala je rješen (grafovi 9-12), a njihova homoskedastičnosti nije narušena (graf 8). Normalnost reziduala malo je lošija nego u prošlom modelu (graf 7), ima teži desni rep, ali ipak nije toliko različita od normalne da bi ozbiljno narušila vjerodostojnost modela. P-vrijednosti testova o regresijskim koeficijentima su i dalje iznimno mali, te se p-vrijednost koeficijenta za regresor 'Lijekovi za krvni tlak' snizila na prihvatljivu razinu. Nadalje, vrijednosti koeficijenta determinacije i prilagođenog koeficijenta determinacije nešto su više od 0.87 što znači da naš model objašnjava 87% varijacije podataka. Za složen fenomen poput pojave kroničnih bubrežnih bolesti u populaciji, moglo bi se reći da je taj postotak poprilično visok. 
 
 
 ### Ostale savezne države
 
-```{r}
+```{r, echo=FALSE, warning=FALSE}
 
 fit3 <- lm(ckd ~ insurance + chol_screen + checkup + bp_med, data=city_data_rest)
 summary(fit3)
@@ -454,12 +467,45 @@ plot(city_data_rest$insurance, rstandard(fit3), ylab="Standardizirani reziduali"
 abline(0, 0, col="blue")
 plot(city_data_rest$chol_screen, rstandard(fit3), ylab="Standardizirani reziduali", xlab="Pregled kolesterola (%)", sub="Graf 17")
 abline(0, 0, col="blue")
-plot(city_data_rest$bp_med, rstandard(fit3), ylab="Standardizirani reziduali", xlab="Ljekovi za krvni tlak (%)", sub="Graf 18")
+plot(city_data_rest$bp_med, rstandard(fit3), ylab="Standardizirani reziduali", xlab="lijekovi za krvni tlak (%)", sub="Graf 18")
 abline(0, 0, col="blue")
 ```
-Model u kojem se ostatak država SAD-a razmatra zasebno također je dao osjetno bolje rezultate. Problem zasivnosti reziduala je riješen (grafovi 15-18), a njihova homoskedastičnosti nije narušena (graf 14). Normalnost reziduala malo je lošija nego u prošlom modelu (graf 13), ima teže repove, ali ipak nije toliko različita od normalne da bi ozbiljno narušila vjerodostojnost modela. P-vrijednosti testova o regresijskim koeficijentima i dalje su iznimno mali. To uključuje i p-vrijednost koeficijenta za regresor 'Ljekovi za krvni tlak' koja se u usporedbi sa starim modelom snizila na prihvatljivu razinu. Nadalje, vrijednosti koeficijenta determinacije i prilagođenog koeficijenta determinacije su otprilike 0.83 što znači da naš model objašnjava 83% varijacije podataka. To je nešto manje nego model za zapadne savezne države, ali je još uvijek dosta dobro za ovako složen problem.
+Model u kojem se ostatak država SAD-a razmatra zasebno također je dao osjetno bolje rezultate. Problem zavisnosti reziduala je rješen (grafovi 15-18), a njihova homoskedastičnosti nije narušena (graf 14). Normalnost reziduala malo je lošija nego u prošlom modelu (graf 13), ima teže repove, ali ipak nije toliko različita od normalne da bi ozbiljno narušila vjerodostojnost modela. P-vrijednosti testova o regresijskim koeficijentima i dalje su iznimno mali. To uključuje i p-vrijednost koeficijenta za regresor 'Lijekovi za krvni tlak' koja se u usporedbi sa starim modelom snizila na prihvatljivu razinu. Nadalje, vrijednosti koeficijenta determinacije i prilagođenog koeficijenta determinacije su otprilike 0.83 što znači da naš model objašnjava 83% varijacije podataka. To je nešto manje nego model za zapadne savezne države, ali je još uvijek dosta dobro za ovako složen problem.
 
 ### Usporedba
 
-Iz iznosa koeficijenata obje regresije možemo zaključiti da veće stope zdravstvene osiguranosti te pregleda kolesterola imaju poželjan utjecaj na postotak kroničnih bubrežnih bolesti. Te od ova dva faktora, pregled kolesterola možemo izdvojiti kao značajnijeg u suzbijanju kroničnih bubrežnih bolesti u oba dijela države. Ipak u zapadnim saveznim državama ova prednost nije toliko izražena kao u ostatku SAD-a. Iznenađujuć rezultat ove analize je činjenica da godišnji pregledi naizgled imaju negativan utjecaj na kronične bolesti bubrega, to jest postoji trend da u populacijama u kojima više ljudi ide na godišnje pregleda ima i više kroničnih bubrežnih bolesti. Ta činjenica bi se mogla objasniti trećom skrivenom varijablom, koja utječe na obje varijable. Na primjer moguće je da u gradovima sa starijim stanovništvom ljudi više oboljevaju od bolesti, ali iz istog razloga češće idu na preglede. Moguće je i da u gradovima u kojima se ide češće na preglede se kronične bubrežne bolesti češće otkrivaju. Ove hipoteze ne možemo istražiti jer nemamo potrebne podatke. <!-- Još prokomentiraj bp_med kad se sazna sta je to tocno. -->
+Iz iznosa koeficijenata obje regresije možemo zaključiti da veće stope zdravstvene osiguranosti te pregleda kolesterola imaju poželjan utjecaj na postotak kroničnih bubrežnih bolesti. Te od ova dva faktora, pregled kolesterola možemo izdvojiti kao značajnijeg u suzbijanju kroničnih bubrežnih bolesti u oba dijela države. Ipak u zapadnim saveznim državama ova prednost nije toliko izražena kao u ostatku SAD-a. Iznenađujuć rezultat ove analize je činjenica da godišnji pregledi naizgled imaju negativan utjecaj na kronične bolesti bubrega, to jest postoji trend da u populacijama u kojima više ljudi ide na godišnje pregleda ima i više kroničnih bubrežnih bolesti. Ta činjenica bi se mogla objasniti trećom skrivenom varijablom, koja utječe na obje varijable. Na primjer moguće je da u gradovima sa starijim stanovništvom ljudi više oboljevaju od bolesti, ali iz istog razloga češće idu na preglede. Moguće je i da u gradovima u kojima se ide češće na preglede, kronične bubrežne bolesti češće se i otkrivaju. Ove hipoteze ne možemo istražiti jer nemamo potrebne podatke. <!-- Još prokomentiraj bp_med kad se sazna sta je to tocno. -->
 
+
+```{r,message=FALSE, echo=FALSE, results=FALSE}
+hbp_d <- lm(ckd ~ high_bp + diabetes, data=per_city_data)
+summary(hbp_d)
+d <- lm(ckd ~ diabetes, data=per_city_data)
+summary(d)
+hbp <- lm(ckd ~ high_bp, data=per_city_data)
+summary(hbp)
+
+plot(per_city_data$high_bp, per_city_data$ckd, xlab="Tlak (%)", ylab="Kronične bolesti bubrega (%)")
+abline(lm(ckd ~ high_bp, data=per_city_data), col="blue")
+plot(per_city_data$diabetes, per_city_data$ckd, xlab="Dijabetes (%)", ylab="Kronične bolesti bubrega (%)")
+abline(lm(ckd ~ diabetes, data=per_city_data), col="blue")
+plot(per_city_data$arthritis, per_city_data$ckd, xlab="Artritis (%)", ylab="Kronične bolesti bubrega (%)")
+abline(lm(ckd ~ arthritis, data=per_city_data), col="blue")
+plot(per_city_data$cancer_noskin, per_city_data$ckd, xlab="Rak (%)", ylab="Kronične bolesti bubrega (%)")
+abline(lm(ckd ~ cancer_noskin, data=per_city_data), col="blue")
+plot(per_city_data$copd, per_city_data$ckd, xlab="COPD (%)", ylab="Kronične bolesti bubrega (%)")
+abline(lm(ckd ~ copd, data=per_city_data), col="blue")
+plot(per_city_data$coronary_heart_disease, per_city_data$ckd, xlab="Srčane bolesti (%)", ylab="Kronične bolesti bubrega (%)")
+abline(lm(ckd ~ coronary_heart_disease, data=per_city_data), col="blue")
+plot(per_city_data$asthma, per_city_data$ckd, xlab="Astma (%)", ylab="Kronične bolesti bubrega (%)")
+abline(lm(ckd ~ asthma, data=per_city_data), col="blue")
+plot(per_city_data$high_col, per_city_data$ckd, xlab="Kolesterol (%)", ylab="Kronične bolesti bubrega (%)")
+abline(lm(ckd ~ high_col, data=per_city_data), col="blue")
+plot(per_city_data$mental_health, per_city_data$ckd, xlab="Mental (%)", ylab="Kronične bolesti bubrega (%)")
+abline(lm(ckd ~ mental_health, data=per_city_data), col="blue")
+plot(per_city_data$physical_health, per_city_data$ckd, xlab="Physical (%)", ylab="Kronične bolesti bubrega (%)")
+abline(lm(ckd ~ physical_health, data=per_city_data), col="blue")
+plot(per_city_data$stroke, per_city_data$ckd, xlab="Moždani udar (%)", ylab="Kronične bolesti bubrega (%)")
+abline(lm(ckd ~ stroke, data=per_city_data), col="blue")
+
+```
